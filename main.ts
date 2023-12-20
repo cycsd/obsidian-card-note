@@ -46,13 +46,10 @@ function addSymbolWhenMouseMove(event: MouseEvent, view: EditorView) {
 	const breakpoints = view.state.field(breakpointStateSet);
 	if (pos) {
 		const line = view.lineBlockAt(pos);
-		let hasBreakpoint = false;
-		console.log("breackpoints", breakpoints);
-		breakpoints.between(line.from, line.from, () => {
-			hasBreakpoint = true;
-		});
-		console.log("hasBreakpoint", hasBreakpoint);
-		if (!hasBreakpoint) {
+		console.log("before? from field: ", breakpoints);
+		console.log("now? from posAtCoords:  ", line.from);
+		if (!breakpoints || breakpoints?.pos !== line.from) {
+			console.log("dipatch", { pos: line.from, on: true });
 			view.dispatch({
 				effects: breakpointEffect.of({ pos: line.from, on: true }),
 			});
@@ -60,7 +57,7 @@ function addSymbolWhenMouseMove(event: MouseEvent, view: EditorView) {
 	}
 	return pos;
 }
-const throttleMousemovve = throttle(addSymbolWhenMouseMove, 1000 * 0.3);
+const throttleMousemovve = throttle(addSymbolWhenMouseMove, 1000 * 0.5);
 const mouseMoveWatch = EditorView.domEventHandlers({
 	mousemove: (event: MouseEvent, view) => {
 		//debounceMousemove(event, view);
@@ -92,43 +89,45 @@ const breakpointMarker = new (class extends GutterMarker {
 const breakpointEffect = StateEffect.define<{ pos: number; on: boolean }>({
 	map: (val, mapping) => ({ pos: mapping.mapPos(val.pos), on: val.on }),
 });
-const breakpointStateSet = StateField.define<RangeSet<GutterMarker>>({
+type nullableeffect = { pos: number; on: boolean } | undefined;
+const breakpointStateSet = StateField.define<nullableeffect>({
 	create() {
-		return RangeSet.empty;
+		return undefined;
 	},
 	update(set, transaction) {
-		set = set.map(transaction.changes);
 		for (const e of transaction.effects) {
 			if (e.is(breakpointEffect)) {
-				if (e.value.on)
-					set = set.update({
-						add: [breakpointMarker.range(e.value.pos)],
-					});
-				else
-					set = set.update({ filter: (from) => from != e.value.pos });
+				console.log("recieve", e.value);
+				set = e.map(transaction.changes)?.value;
+				console.log("after map", set);
 			}
 		}
+		console.log("after map", set);
 		return set;
 	},
 });
-function toggleBreakpoint(view: EditorView, pos: number, on: boolean) {
-	const breakpoints = view.state.field(breakpointStateSet);
-	let hasBreakpoint = false;
-	breakpoints.between(pos, pos, () => {
-		hasBreakpoint = true;
-	});
-	console.log("leave or in?", on);
-	console.log("position is ?", pos);
-	if (!hasBreakpoint || !on) {
-		view.dispatch({
-			effects: breakpointEffect.of({ pos, on: on }),
-		});
-	}
-}
+// function toggleBreakpoint(view: EditorView, pos: number, on: boolean) {
+// 	const breakpoints = view.state.field(breakpointStateSet);
+// 	let hasBreakpoint = false;
+// 	breakpoints.between(pos, pos, () => {
+// 		hasBreakpoint = true;
+// 	});
+// 	console.log("leave or in?", on);
+// 	console.log("position is ?", pos);
+// 	if (!hasBreakpoint || !on) {
+// 		view.dispatch({
+// 			effects: breakpointEffect.of({ pos, on: on }),
+// 		});
+// 	}
+// }
 
 const breakpointGutter = gutter({
 	class: "cm-breakpoint-gutter",
-	markers: (v) => v.state.field(breakpointStateSet),
+	//markers: (v) => v.state.field(breakpointStateSet),
+	lineMarker(view, line) {
+		const toggleLine = view.state.field(breakpointStateSet);
+		return line.from === toggleLine?.pos ? breakpointMarker : null;
+	},
 	initialSpacer: () => breakpointMarker,
 	// domEventHandlers: {
 	// 	pointerover(view, line, event) {
