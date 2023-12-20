@@ -11,62 +11,31 @@ import {
 	TextFileView,
 	debounce,
 } from "obsidian";
-import { EditorView, gutter, GutterMarker } from "@codemirror/view";
-import { StateField, StateEffect, RangeSet } from "@codemirror/state";
+import {
+	EditorView,
+	gutter,
+	GutterMarker,
+	hoverTooltip,
+	Tooltip,
+	showTooltip,
+} from "@codemirror/view";
+import {
+	StateField,
+	StateEffect,
+	RangeSet,
+	EditorState,
+} from "@codemirror/state";
+import { dragExtension } from "dragUpdate";
 // Remember to rename these classes and interfaces!
 const debounceMousemove = debounce(
 	(event: MouseEvent, view: EditorView) => {
 		const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-		console.log("mouse moving moving", pos);
+		//console.log("mouse moving moving", pos);
 	},
 	1000 * 1,
 	true
 );
-function throttle<T extends unknown[], V>(
-	cb: (...args: [...T]) => V,
-	timeout?: number,
-	resetTimer?: boolean
-) {
-	let timer = false;
-	let result: V;
-	return (...args: [...T]) => {
-		if (!timer) {
-			timer = true;
-			setTimeout(() => {
-				timer = false;
-			}, timeout);
-			result = cb(...args);
-		}
-		return result;
-	};
-}
-function addSymbolWhenMouseMove(event: MouseEvent, view: EditorView) {
-	const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-	console.log("mouse moving moving", pos);
-	const breakpoints = view.state.field(breakpointStateSet);
-	if (pos) {
-		const line = view.lineBlockAt(pos);
-		let hasBreakpoint = false;
-		console.log("breackpoints", breakpoints);
-		breakpoints.between(line.from, line.from, () => {
-			hasBreakpoint = true;
-		});
-		console.log("hasBreakpoint", hasBreakpoint);
-		if (!hasBreakpoint) {
-			view.dispatch({
-				effects: breakpointEffect.of({ pos: line.from, on: true }),
-			});
-		}
-	}
-	return pos;
-}
-const throttleMousemovve = throttle(addSymbolWhenMouseMove, 1000 * 0.3);
-const mouseMoveWatch = EditorView.domEventHandlers({
-	mousemove: (event: MouseEvent, view) => {
-		//debounceMousemove(event, view);
-		throttleMousemovve(event, view);
-	},
-});
+
 const emptyMarker = new (class extends GutterMarker {
 	toDOM() {
 		return document.createTextNode("ø");
@@ -84,62 +53,71 @@ const emptyLineGutter = gutter({
 	},
 	initialSpacer: () => emptyMarker,
 });
-const breakpointMarker = new (class extends GutterMarker {
-	toDOM() {
-		return document.createTextNode("💔");
-	}
-})();
-const breakpointEffect = StateEffect.define<{ pos: number; on: boolean }>({
-	map: (val, mapping) => ({ pos: mapping.mapPos(val.pos), on: val.on }),
-});
-const breakpointStateSet = StateField.define<RangeSet<GutterMarker>>({
-	create() {
-		return RangeSet.empty;
-	},
-	update(set, transaction) {
-		set = set.map(transaction.changes);
-		for (const e of transaction.effects) {
-			if (e.is(breakpointEffect)) {
-				if (e.value.on)
-					set = set.update({
-						add: [breakpointMarker.range(e.value.pos)],
-					});
-				else
-					set = set.update({ filter: (from) => from != e.value.pos });
-			}
-		}
-		return set;
-	},
-});
-function toggleBreakpoint(view: EditorView, pos: number, on: boolean) {
-	const breakpoints = view.state.field(breakpointStateSet);
-	let hasBreakpoint = false;
-	breakpoints.between(pos, pos, () => {
-		hasBreakpoint = true;
-	});
-	console.log("leave or in?", on);
-	console.log("position is ?", pos);
-	if (!hasBreakpoint || !on) {
-		view.dispatch({
-			effects: breakpointEffect.of({ pos, on: on }),
-		});
-	}
-}
 
-const breakpointGutter = gutter({
-	class: "cm-breakpoint-gutter",
-	markers: (v) => v.state.field(breakpointStateSet),
-	initialSpacer: () => breakpointMarker,
-	// domEventHandlers: {
-	// 	pointerover(view, line, event) {
-	// 		toggleBreakpoint(view, line.from, true);
-	// 		return true;
-	// 	},
-	// 	pointerleave(view, line, event) {
-	// 		toggleBreakpoint(view, line.from, false);
-	// 		return true;
-	// 	},
-	// },
+// function toggleBreakpoint(view: EditorView, pos: number, on: boolean) {
+// 	const breakpoints = view.state.field(dragSymbolSet);
+// 	let hasBreakpoint = false;
+// 	breakpoints.between(pos, pos, () => {
+// 		hasBreakpoint = true;
+// 	});
+// 	//console.log("leave or in?", on);
+// 	//console.log("position is ?", pos);
+// 	if (!hasBreakpoint || !on) {
+// 		view.dispatch({
+// 			effects: mousemoveEffect.of({ pos }),
+// 		});
+// 	}
+// }
+
+function getCursorTooltips(state: EditorState): readonly Tooltip[] {
+	return state.selection.ranges
+		.filter((range) => range.empty)
+		.map((range) => {
+			const line = state.doc.lineAt(range.head);
+			const text = line.number + ":" + (range.head - line.from);
+			return {
+				pos: range.head,
+				above: true,
+				strictSide: true,
+				arrow: true,
+				create: () => {
+					const dom = document.createElement("div");
+					dom.className = "cm-tooltip-cursor";
+					dom.textContent = text;
+					return { dom };
+				},
+			};
+		});
+}
+const cursorTooltipField = StateField.define<readonly Tooltip[]>({
+	create: getCursorTooltips,
+
+	update(tooltips, tr) {
+		if (!tr.docChanged && !tr.selection) return tooltips;
+		return getCursorTooltips(tr.state);
+	},
+
+	provide: (f) => showTooltip.computeN([f], (state) => state.field(f)),
+});
+export const wordHover = hoverTooltip((view, pos, side) => {
+	const { from, to, text } = view.state.doc.lineAt(pos);
+	const start = from,
+		end = to;
+	// while (start > from && /\w/.test(text[start - from - 1])) start--;
+	// while (end < to && /\w/.test(text[end - from])) end++;
+	//if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+	//console.log("from:?", from);
+	//console.log("to:?", to);
+	return {
+		pos: start,
+		end: end,
+		above: true,
+		create(view) {
+			const dom = document.createElement("div");
+			dom.textContent = text.slice(start - from, end - from);
+			return { dom };
+		},
+	};
 });
 interface MyPluginSettings {
 	mySetting: string;
@@ -157,22 +135,25 @@ export default class MyPlugin extends Plugin {
 		this.addRibbonToLeftBar();
 	}
 	loadEditerExtension() {
-		this.registerEditorExtension([
-			breakpointStateSet,
-			breakpointGutter,
-			emptyLineGutter,
-			mouseMoveWatch,
-			// EditorView.updateListener.of((v) => {
-			// 	console.log("will update listener listen mouse event?", v);
-			// 	if (v.docChanged) {
-			// 		// if (timer) clearTimeout(timer);
-			// 		// timer = setTimeout(() => {
-			// 		// 	console.log("DO SOMETHING WITH THE NEW CODE");
-			// 		// }, 500);
-			// 	}
-			// }),
-		]);
+		// this.registerEditorExtension([
+		// 	//wordHover,
+		// 	//cursorTooltipField,
+		// 	// EditorView.updateListener.of((v) => {
+		// 	// 	console.log("will update listener listen mouse event?", v);
+		// 	// 	if (v.docChanged) {
+		// 	// 		// if (timer) clearTimeout(timer);
+		// 	// 		// timer = setTimeout(() => {
+		// 	// 		// 	console.log("DO SOMETHING WITH THE NEW CODE");
+		// 	// 		// }, 500);
+		// 	// 	}
+		// 	// }),
+		// ]);
+		this.registerDragExtension();
 	}
+	registerDragExtension() {
+		this.registerEditorExtension(dragExtension(this));
+	}
+
 	onunload() {}
 
 	async loadSettings() {
