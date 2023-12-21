@@ -133,6 +133,7 @@ export default class MyPlugin extends Plugin {
 		await this.loadSettings();
 		this.loadEditerExtension();
 		this.addRibbonToLeftBar();
+		this.registerDomEventAndRemoveEventWhenUnload();
 	}
 	loadEditerExtension() {
 		// this.registerEditorExtension([
@@ -227,16 +228,20 @@ export default class MyPlugin extends Plugin {
 			console.log("edit", edit);
 			console.log(file);
 		});
+		this.app.workspace.on("codemirror", (e) => {
+			console.log("workspace on codemirror", e);
+		})
 	}
 	registerDomEventAndRemoveEventWhenUnload() {
 		//在obsidian內註冊dom event盡量使用此方法，
 		//會自動幫你管理當plugin disable的時候將方法註銷
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, "mouseup", (event: MouseEvent) => {
+		this.registerDomEvent(document, "click", (event: MouseEvent) => {
 			const editor = this.app.workspace.activeEditor?.editor;
 			const select = editor?.getSelection();
-			console.log(select);
+			console.log("get select in document click event",editor);
+			console.log("get select in document click event",select);
 		});
 
 		this.registerDomEvent(document, "click", (e) => {
