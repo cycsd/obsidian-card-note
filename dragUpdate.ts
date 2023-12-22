@@ -1,8 +1,116 @@
 import MyPlugin from "main";
-import { EditorView, gutter, GutterMarker } from "@codemirror/view";
+import { EditorView, gutter, GutterMarker, Decoration, DecorationSet, WidgetType, ViewPlugin, ViewUpdate, Rect } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet } from "@codemirror/state";
 import { throttle } from "utility";
 import { getEA } from "obsidian-excalidraw-plugin";
+import { syntaxTree } from "@codemirror/language"
+import * as CodeMirror from "codemirror";
+
+
+
+type BlockInfo = ReturnType<EditorView["lineBlockAt"]>;
+const addUnderline = StateEffect.define<{ from: number, to: number }>({
+	map: ({ from, to }, change) => ({ from: change.mapPos(from), to: change.mapPos(to) })
+})
+
+const underlineField = StateField.define<DecorationSet>({
+	create() {
+		return Decoration.none
+	},
+	update(underlines, tr) {
+		underlines = underlines.map(tr.changes)
+		for (const e of tr.effects) if (e.is(addUnderline)) {
+			underlines = underlines.update({
+				add: [underlineMark.range(e.value.from, e.value.to)]
+			})
+		}
+		return underlines
+	},
+	provide: f => EditorView.decorations.from(f)
+})
+
+const underlineMark = Decoration.mark({ class: "cm-underline" })
+
+class CheckboxWidget extends WidgetType {
+	constructor(readonly checked: boolean) { super() }
+
+	eq(other: CheckboxWidget) { return other.checked == this.checked }
+
+	toDOM(view: EditorView) {
+		const wrap = document.createElement("span")
+		wrap.setAttribute("aria-hidden", "true")
+		wrap.className = "cm-boolean-toggle"
+		const box = wrap.appendChild(document.createElement("input"))
+		box.type = "checkbox"
+		box.checked = this.checked
+		return wrap
+	}
+
+	ignoreEvent() { return false }
+}
+
+function checkboxes(view: EditorView) {
+	const widgets: ReturnType<Decoration["range"]>[] = [];
+	for (const { from, to } of view.visibleRanges) {
+		syntaxTree(view.state).iterate({
+			from, to,
+			enter: (node) => {
+				console.log("from: ", node.from, "to: ", node.to, "name:", node.name);
+				if (node.name == "Document") {
+					console.log("from: ", node.from, "to: ", node.to, "node", node);
+
+				}
+				if (node.name == "BooleanLiteral") {
+					const isTrue = view.state.doc.sliceString(node.from, node.to) == "true"
+					const deco = Decoration.widget({
+						widget: new CheckboxWidget(isTrue),
+						side: 1
+					})
+					widgets.push(deco.range(node.to))
+				}
+			}
+		})
+	}
+	return Decoration.set(widgets)
+}
+
+const checkboxPlugin = ViewPlugin.fromClass(class {
+	decorations: DecorationSet
+
+	constructor(view: EditorView) {
+		this.decorations = checkboxes(view)
+	}
+
+	update(update: ViewUpdate) {
+		if (update.docChanged || update.viewportChanged)
+			this.decorations = checkboxes(update.view)
+	}
+}, {
+	decorations: v => v.decorations,
+
+	eventHandlers: {
+		mousedown: (e, view) => {
+			const target = e.target as HTMLElement
+			if (target.nodeName == "INPUT" &&
+				target.parentElement!.classList.contains("cm-boolean-toggle"))
+				return toggleBoolean(view, view.posAtDOM(target))
+		}
+	}
+})
+function toggleBoolean(view: EditorView, pos: number) {
+	const before = view.state.doc.sliceString(Math.max(0, pos - 5), pos)
+	let change
+	if (before == "false")
+		change = { from: pos - 5, to: pos, insert: "true" }
+	else if (before.endsWith("true"))
+		change = { from: pos - 4, to: pos, insert: "false" }
+	else
+		return false
+	view.dispatch({ changes: change })
+	return true
+}
+
+
 export const dragExtension = (plugin: MyPlugin) => {
 	const handleDropToCreateFile = (e: DragEvent) => {
 		console.log("can detect canvas?", e.target);
@@ -48,20 +156,24 @@ export const dragExtension = (plugin: MyPlugin) => {
 		destroy(dom: Node): void {
 			document.removeEventListener("click", this.clickHandler);
 		}
-		toDOM() {
+		toDOM(view: EditorView) {
 			const div = document.createElement("div");
 			div.draggable = true;
 			div.innerText = "💔";
 			let ghost: HTMLElement;
+			div.style.width = "10vw";
+			div.style.height = "10vh";
 			div.addEventListener("click", this.clickHandler);
 			div.addEventListener("dragend", (e) => {
 				document.removeEventListener("drop", handleDropToCreateFile);
 			});
 			div.addEventListener("dragstart", (e) => {
+				console.log("widget to Dom can access view", view);
 				document.addEventListener("drop", handleDropToCreateFile);
 				//點擊gutter後會取不到activeEditor
-				const selection =
-					plugin.app.workspace.activeEditor?.editor?.getSelection();
+				const se = view.state.selection;
+				const selection = view.state.doc.sliceString(se.main.from, se.main.to);
+				//plugin.app.workspace.activeEditor?.editor?.getSelection();
 				ghost = document.createElement("div");
 				//set position to absolute and append it to body to show custom element when dragging
 				ghost.style.position = "absolute";
@@ -72,9 +184,12 @@ export const dragExtension = (plugin: MyPlugin) => {
 				plugin.app.workspace.containerEl.appendChild(ghost);
 				ghost.innerText = selection ?? "Hellow World";
 				const active = document.querySelector(".cm-active");
+				const statefield = view.state.field(dragSymbolSet);
 				console.log("select: ", active);
 				console.log("create ghost: ", ghost);
+				console.log("select", se);
 				console.log("select text", selection);
+				console.log("state field", statefield);
 				(e.dataTransfer as any).effectAllowed = "all";
 				e.dataTransfer?.setDragImage(
 					ghost.innerText?.trim().length === 0
@@ -88,29 +203,52 @@ export const dragExtension = (plugin: MyPlugin) => {
 			return div;
 		}
 	})();
-	const mousemoveEffect = StateEffect.define<{ pos: number }>({
-		map: (val, mapping) => ({ pos: mapping.mapPos(val.pos) }),
+	const mousemoveEffect = StateEffect.define<{ from: number, to: number }>({
+		map: (val, mapping) => ({ from: mapping.mapPos(val.from), to: mapping.mapPos(val.to) }),
 	});
-	const dragSymbolSet = StateField.define<RangeSet<GutterMarker>>({
+	const dragSymbolSet = StateField.define<[RangeSet<GutterMarker>, DecorationSet]>({
 		create() {
-			return RangeSet.empty;
+			return [RangeSet.empty, Decoration.none];
 		},
 		update(set, transaction) {
-			set = set.map(transaction.changes);
+			let [range_set, deco] = set;
+			range_set = range_set.map(transaction.changes);
 			for (const e of transaction.effects) {
 				if (e.is(mousemoveEffect)) {
-					set = set.update({
-						add: [dragMarker.range(e.value.pos)],
-						filter: (from) => from === e.value.pos,
+					range_set = range_set.update({
+						add: [dragMarker.range(e.value.from)],
+						filter: (from) => from === e.value.from,
 					});
+					deco = Decoration.set([
+						Decoration.widget({
+							widget: lineDragWidget
+						}).range(e.value.from)
+					])
 				}
 			}
-			return set;
+			return [range_set, deco];
 		},
+		//依此stateField狀態所需要更新的Extension都可以放在provide funciton中提供出來
+		provide: (value) => {
+			const de = EditorView.decorations.from(value, v => {
+				const [_r, d] = v;
+				return d;
+			})
+			const gut = gutter({
+				class: "cm-breakpoint-gutter",
+				markers: (v) => {
+					//console.log("provide", value);
+					const [range_set, _deco] = v.state.field(value);
+					return range_set;
+				},
+				initialSpacer: () => dragMarker,
+			})
+			return [de, gut];
+		}
 	});
 	const dragGutter = gutter({
 		class: "cm-breakpoint-gutter",
-		markers: (v) => v.state.field(dragSymbolSet),
+		//markers: (v) => { console.log("provide in gutter", v.state.field(dragSymbolSet)); return v.state.field(dragSymbolSet); },
 		initialSpacer: () => dragMarker,
 		// domEventHandlers: {
 		// 	pointerover(view, line, event) {
@@ -130,17 +268,17 @@ export const dragExtension = (plugin: MyPlugin) => {
 		});
 		//console.log("mouse moving moving", pos);
 		if (pos) {
-			const breakpoints = view.state.field(dragSymbolSet);
+			const [dragPoint, dragLine] = view.state.field(dragSymbolSet);
 			const line = view.lineBlockAt(pos);
-			let hasBreakpoint = false;
+			let hasDragPoint = false;
 			//console.log("breackpoints", breakpoints);
-			breakpoints.between(line.from, line.from, () => {
-				hasBreakpoint = true;
+			dragPoint.between(line.from, line.from, () => {
+				hasDragPoint = true;
 			});
 			//console.log("hasBreakpoint", hasBreakpoint);
-			if (!hasBreakpoint) {
+			if (!hasDragPoint) {
 				view.dispatch({
-					effects: mousemoveEffect.of({ pos: line.from }),
+					effects: mousemoveEffect.of({ from: line.from, to: line.to }),
 				});
 			}
 		}
@@ -152,5 +290,27 @@ export const dragExtension = (plugin: MyPlugin) => {
 			throttle(addSymbolWhenMouseMove, 1000 * 0.2)(event, view);
 		},
 	});
-	return [dragGutter, dragSymbolSet, mouseMoveWatch];
+	const lineDragWidget = new (class extends WidgetType {
+		toDOM(view: EditorView): HTMLElement {
+			const dragContent = document.createElement("span");
+			dragContent.draggable = true;
+			dragContent.innerText = "💔";
+			dragContent.addEventListener("click", e => {
+				const editor = plugin.app.workspace.activeEditor;
+				console.log("can detect active editor in line?", editor);
+			})
+			return dragContent;
+		}
+		coordsAt(dom: HTMLElement, pos: number, side: number): Rect | null {
+			console.log("pos: ", pos, "side: ", side);
+			return super.coordsAt(dom, pos, side);
+		}
+	})
+
+	return [
+		//dragGutter,
+		dragSymbolSet,
+		mouseMoveWatch,
+		//checkboxPlugin
+	];
 };
