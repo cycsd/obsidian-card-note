@@ -155,7 +155,7 @@ export default class MyPlugin extends Plugin {
 		this.registerEditorExtension(dragExtension(this));
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(
@@ -179,17 +179,17 @@ export default class MyPlugin extends Plugin {
 			this.app.vault.on("create", (file) => {
 				const edit = this.app.workspace.activeEditor;
 				edit?.editor?.somethingSelected;
-				const exalidrawExtendsTextFileView =
-					this.app.workspace.getActiveViewOfType(TextFileView) as any;
-				const actleaf =
-					exalidrawExtendsTextFileView.getActiveEmbeddable().leaf;
-				//actleaf.view.setMode("source");
-				console.log("excalidarw active", exalidrawExtendsTextFileView);
-				console.log(
-					"active: ",
-					exalidrawExtendsTextFileView.getActiveEmbeddable()
-				);
-				console.log("leaf? ", actleaf);
+				// const exalidrawExtendsTextFileView =
+				// 	this.app.workspace.getActiveViewOfType(TextFileView) as any;
+				// const actleaf =
+				// 	exalidrawExtendsTextFileView.getActiveEmbeddable().leaf;
+				// //actleaf.view.setMode("source");
+				// console.log("excalidarw active", exalidrawExtendsTextFileView);
+				// console.log(
+				// 	"active: ",
+				// 	exalidrawExtendsTextFileView.getActiveEmbeddable()
+				// );
+				// console.log("leaf? ", actleaf);
 				console.log("edit:", edit); //可以抓到正確的edit file
 				console.log("note create:", file);
 			});
@@ -240,8 +240,8 @@ export default class MyPlugin extends Plugin {
 		this.registerDomEvent(document, "click", (event: MouseEvent) => {
 			const editor = this.app.workspace.activeEditor?.editor;
 			const select = editor?.getSelection();
-			console.log("get select in document click event",editor);
-			console.log("get select in document click event",select);
+			console.log("get select in document click event", editor);
+			console.log("get select in document click event", select);
 		});
 
 		this.registerDomEvent(document, "click", (e) => {
@@ -284,6 +284,7 @@ export default class MyPlugin extends Plugin {
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				console.log(editor.getSelection());
 				editor.replaceSelection("Sample Editor Command");
+
 			},
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command

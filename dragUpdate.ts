@@ -2,9 +2,13 @@ import MyPlugin from "main";
 import { EditorView, gutter, GutterMarker, Decoration, DecorationSet, WidgetType, ViewPlugin, ViewUpdate, Rect } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet } from "@codemirror/state";
 import { throttle } from "utility";
-import { getEA } from "obsidian-excalidraw-plugin";
+//import { getEA } from "obsidian-excalidraw-plugin";
 import { syntaxTree } from "@codemirror/language"
 import * as CodeMirror from "codemirror";
+import { TFile, TFolder, ViewState, normalizePath } from "obsidian";
+import { stat } from "fs";
+import { FileNameCheckModal } from "src/ui";
+import { resolve } from "path";
 
 
 
@@ -109,66 +113,160 @@ import * as CodeMirror from "codemirror";
 // 	view.dispatch({ changes: change })
 // 	return true
 // }
+type NameFile<T> = {
+	create: () => T,
+	update: (prev: T) => T,
+	provide: (arg: T, unapprove: TFile | TFolder | undefined) => Promise<string | undefined>,
+}
 
+type Selection = {
+	from: number,
+	to: number,
+}
+const LineBreak = "\n";
+const MarkdownFileExtension = ".md";
+async function checkFileName<T>(plugin: MyPlugin, config: NameFile<T>) {
+	let state = config.create();
+	let folder;
+	while (true) {
+		const fileUncheck = await config.provide(state, folder);
+		if (fileUncheck === undefined) {
+			console.log("no file?", fileUncheck);
+			return fileUncheck;
+		}
+		const normalFilePath = normalizePath(fileUncheck);
+		try {
+			console.log("normalFilePath: ", normalFilePath)
+			if (fileUncheck === "" || await plugin.app.vault.adapter.exists(fileUncheck + MarkdownFileExtension)) {
+				state = config.update(state);
+				continue;
+			}
+			return normalFilePath;
+			//@ts-ignore
+			//plugin.app.vault.checkPath()
+		} catch (error) {
+			//@ts-ignore
+			// folder = plugin.app.vault.getAbstractFileByPathInsensitive(normalFilePath);
+			// plugin.app.vault.adapter.exists(fileUncheck)
+			// if (folder && (folder instanceof TFolder || folder instanceof TFile)) {
+			// 	state = config.update(state);
+			// 	continue;
+			// }
+			// return folder;
+		}
+
+	}
+}
+async function createDefaultFileName(plugin: MyPlugin, content: string) {
+	const filePath = content.split(LineBreak, 1)[0];
+	const createRandomFileName = () => {
+		return checkFileName(plugin, {
+			create: () => {
+				return { name: "NewNote", count: 0 };
+			},
+			update: (prev) => ({ name: prev.name, count: prev.count + 1 }),
+			provide: (arg) => Promise.resolve(arg.name + arg.count),
+		})
+	}
+	return filePath.length !== 0
+		? filePath
+		: await createRandomFileName();
+}
+// new WarningPrompt(
+// 	app,
+// 	"⚠ ExcaliBrain Disabled: Excalidraw Plugin not found",
+// 	t("EXCALIDRAW_NOT_FOUND")
+// ).show(async (result: boolean) => {
+// 	new Notice("Disabling ExcaliBrain Plugin", 8000);
+// 	errorlog({
+// 		fn: this.onload,
+// 		where: "main.ts/onload()",
+// 		message: "Excalidraw not found",
+// 	});
+// 	this.app.plugins.disablePlugin(PLUGIN_NAME);
+// });
 
 export const dragExtension = (plugin: MyPlugin) => {
-	let needToAddLink = false;
-	const handleDropToCreateFile = (text: () => string) => {
-		return async (e: DragEvent) => {
+	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
+		let needToAddLinkFlag = false;
+		const handleDrop = (e: DragEvent) => {
 			console.log("can detect canvas?", e.target);
 			try {
 				if (e.target as HTMLCanvasElement) {
-					const ea = getEA();
-					//@ts-ignore
-					const eb = ExcalidrawLib;
-					//@ts-ignore
-					const view = ea.setView();
-
-					const pluginApp = plugin.app;
-					const filePath = "";
-
-					const file = await pluginApp.vault.create(filePath, text())
-					const fileLink = pluginApp.metadataCache.fileToLinktext(
-						file,
-						view.file.path,
-						file.extension === "md",
-					)
-					const MAX_IMAGE_SIZE = 500;
-					const _id = ea.addEmbeddable(
-						view.currentPosition.x,
-						view.currentPosition.y,
-						MAX_IMAGE_SIZE,
-						MAX_IMAGE_SIZE,
-						fileLink,
-						file
-					);
-					await ea.addElementsToView(false, true, true);
-					needToAddLink = true;
-					console.log("can get EA?", ea);
-					console.log("can get EB?", eb);
-					console.log("file", text());
-
-					//return _id;
+					needToAddLinkFlag = true;
+				} else {
+					needToAddLinkFlag = false;
 				}
 			} catch (error) {
 				console.log("not find ea");
 			}
-			return;
-			// new WarningPrompt(
-			// 	app,
-			// 	"⚠ ExcaliBrain Disabled: Excalidraw Plugin not found",
-			// 	t("EXCALIDRAW_NOT_FOUND")
-			// ).show(async (result: boolean) => {
-			// 	new Notice("Disabling ExcaliBrain Plugin", 8000);
-			// 	errorlog({
-			// 		fn: this.onload,
-			// 		where: "main.ts/onload()",
-			// 		message: "Excalidraw not found",
-			// 	});
-			// 	this.app.plugins.disablePlugin(PLUGIN_NAME);
-			// });
-		}
-	};
+		};
+		let ghost: HTMLElement;
+		let info: { content: string, lines: Selection[] };
+		const reset = () => {
+			document.removeEventListener("drop", handleDrop);
+			document.body.removeChild(ghost);
+			const flagRest = () => {
+				needToAddLinkFlag = false;
+			};
+			return needToAddLinkFlag
+				? { flagRest }
+				: needToAddLinkFlag;
+		};
+		dragSymbol.addEventListener("dragstart", (e) => {
+			const getSelection = (): { content: string, lines: Selection[] } => {
+				const selectLines = view.state.selection.ranges.map(range => ({
+					from: range.from,
+					to: range.to,
+				}))
+				const select = selectLines.map(range => {
+					return view.state.sliceDoc(range.from, range.to);
+				}).join().trim();
+				return { content: select, lines: selectLines }
+			}
+
+			const getLineString = () => {
+				const statefield = view.state.field(dragSymbolSet);
+				const start = statefield.iter().from;
+				const lineBlock = view.lineBlockAt(start);
+				const lineString = view.state.sliceDoc(lineBlock.from, lineBlock.to)
+				return { content: lineString, lines: [{ from: start, to: lineBlock.to }] }
+			}
+			//console.log("from: ", start, "line block: ", lineBlock)
+			const defaultSelect = getSelection();
+			info = defaultSelect.content.length !== 0 ? defaultSelect : getLineString();
+			if (!ghost) {
+				const div = document.createElement("div");
+				//set position to absolute and append it to body to show custom element when dragging
+				div.style.position = "absolute";
+				//use translate to hide element outside of screen.
+				div.style.transform = "translate(-10000px, -10000px)";
+				ghost = document.body.appendChild(div);
+				//plugin.app.workspace.containerEl.appendChild(this.ghost);
+			}
+			else {
+				ghost = document.body.appendChild(ghost);
+			}
+			ghost.innerText = info.content;
+			//console.log("widget to Dom can access view", view);
+			document.addEventListener("drop", handleDrop);
+			//const active = document.querySelector(".cm-active");
+
+			// console.log("select: ", active);
+			console.log("create ghost: ", ghost);
+			// console.log("select", se);
+			// console.log("select text", selection);
+			// console.log("state field", statefield);
+			(e.dataTransfer as any).effectAllowed = "all";
+			e.dataTransfer?.setDragImage(
+				ghost,
+				0,
+				0
+			);
+		});
+
+		return { reset, getInfo: () => info }
+	}
 	const dragMarker = new (class extends GutterMarker {
 		clickHandler(e: MouseEvent) {
 			//console.log("workspace", plugin.app.workspace);
@@ -185,12 +283,11 @@ export const dragExtension = (plugin: MyPlugin) => {
 				plugin.app.workspace.activeEditor
 			);
 		}
+
 		destroy(dom: Node): void {
 			document.removeEventListener("click", this.clickHandler);
-			this.ghost?.remove();
 		}
 		//dragSymbol: HTMLElement;
-		ghost?: HTMLElement;
 		toDOM(view: EditorView) {
 			const dragSymbol = document.createElement("div");
 			dragSymbol.draggable = true;
@@ -200,56 +297,78 @@ export const dragExtension = (plugin: MyPlugin) => {
 			//div.style.fontSize = "3vh";
 			// div.style.width = "10vw";
 			// div.style.height = "10vh";
-			let content: string;
-			dragSymbol.addEventListener("click", this.clickHandler);
 
-			const handleDrop = handleDropToCreateFile(() => content);
-			dragSymbol.addEventListener("dragend", (e) => {
-				document.removeEventListener("drop", handleDrop);
+			//dragSymbol.addEventListener("click", this.clickHandler);
+			// if I want to replace line
+			// I need to know line.from line.to
+			// support mutilple selection [{line.from, line.to}]
+			//replace file name and view....but do it in dragend
+			const { reset, getInfo } = addDragStartEvent(dragSymbol, view);
+			dragSymbol.addEventListener("dragend", async (e) => {
+				const needToAddLink = reset();
 				if (needToAddLink) {
-					needToAddLink = false;
-					//replace editor's select line or text with link
-				}
-			});
-			dragSymbol.addEventListener("dragstart", (e) => {
-				const select = view.state.selection.ranges.map(range => {
-					return view.state.sliceDoc(range.from, range.to);
-				}).join().trim();
-				const getLineString = () => {
-					const statefield = view.state.field(dragSymbolSet);
-					const start = statefield.iter().from;
-					const lineBlock = view.lineBlockAt(start);
-					const lineString = view.state.sliceDoc(lineBlock.from, lineBlock.to)
-					return lineString
-				}
-				//console.log("from: ", start, "line block: ", lineBlock)
-				content = select.length !== 0 ? select : getLineString();
-				if (!this.ghost) {
-					const div = document.createElement("div");
-					//set position to absolute and append it to body to show custom element when dragging
-					div.style.position = "absolute";
-					//use translate to hide element outside of screen.
-					div.style.transform = "translate(-10000px, -10000px)";
-					this.ghost = document.body.appendChild(div);
-					//plugin.app.workspace.containerEl.appendChild(this.ghost);
-				}
-				this.ghost.innerText = content;
-				//console.log("widget to Dom can access view", view);
-				document.addEventListener("drop", handleDrop);
-				//const active = document.querySelector(".cm-active");
+					needToAddLink.flagRest();
+					const pluginApp = plugin.app;
+					const info = getInfo();
+					const filePath = await createDefaultFileName(plugin, info.content);
+					const getUserReName = (defaultValue?: string) => {
+						return new Promise<string | undefined>(resolve => {
+							new FileNameCheckModal(pluginApp, value => {
+								resolve(value);
+							}, defaultValue)
+								.open();
+						})
+					}
+					const userCheckPath = await checkFileName(plugin, {
+						create() {
+							return filePath;
+						},
+						update(prev) {
+							return undefined;
+						},
+						provide(arg, file) {
+							return getUserReName(arg)
+						}
+					})
+					if (userCheckPath) {
+						//replace editor's select line or text with link
+						const file = await pluginApp.vault.create(userCheckPath + MarkdownFileExtension, info.content)
+						const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
+							file,
+							file.path,//eaView.file.path,
+							file.extension === "md",
+						)}]]`;
+						const trans = view.state.update({
+							changes: info.lines.map(line => {
+								return { from: line.from, to: line.to, insert: fileLink }
+							})
+						})
+						view.dispatch(trans);
+						console.log("finish dispatch? transaction is", trans, "link is", fileLink);
+						// const ea = getEA();
+						// //@ts-ignore
+						// const eb = ExcalidrawLib;
+						// //@ts-ignore
+						// const eaView = ea.setView();
+						// console.log("can get EA?", ea);
+						// console.log("can get EB?", eb);
+						// const MAX_IMAGE_SIZE = 500;
+						// const _id = ea.addEmbeddable(
+						// 	eaView.currentPosition.x,
+						// 	eaView.currentPosition.y,
+						// 	MAX_IMAGE_SIZE,
+						// 	MAX_IMAGE_SIZE,
+						// 	fileLink,
+						// 	file
+						// );
+						// await ea.addElementsToView(false, true, true);
 
-				// console.log("select: ", active);
-				console.log("create ghost: ", this.ghost);
-				// console.log("select", se);
-				// console.log("select text", selection);
-				// console.log("state field", statefield);
-				(e.dataTransfer as any).effectAllowed = "all";
-				e.dataTransfer?.setDragImage(
-					this.ghost,
-					0,
-					0
-				);
+
+					}
+					//return _id;
+				}
 			});
+
 			//return document.createTextNode("💔");
 			return dragSymbol;
 		}
