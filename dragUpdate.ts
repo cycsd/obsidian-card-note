@@ -2,13 +2,21 @@ import MyPlugin from "main";
 import { EditorView, gutter, GutterMarker, Decoration, DecorationSet, WidgetType, ViewPlugin, ViewUpdate, Rect } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet } from "@codemirror/state";
 import { throttle } from "utility";
-//import { getEA } from "obsidian-excalidraw-plugin";
 import { syntaxTree } from "@codemirror/language"
 import * as CodeMirror from "codemirror";
 import { TFile, TFolder, ViewState, normalizePath } from "obsidian";
 import { stat } from "fs";
 import { FileNameCheckModal } from "src/ui";
 import { resolve } from "path";
+import { getEA, getEALib } from "src/adapters/obsidian-excalidraw-plugin";
+import { ExcalidrawLib } from "obsidian-excalidraw-plugin/lib/typings/ExcalidrawLib";
+//import { viewportCoordsToSceneCoords } from "src/adapters/obsidian-excalidraw-plugin/types/ExcalidrawLib";
+
+
+//import { ExcalidrawLib, EmbeddedLink } from "obsidian-excalidraw-plugin/lib/typings/ExcalidrawLib";
+
+
+
 
 
 
@@ -113,6 +121,7 @@ import { resolve } from "path";
 // 	view.dispatch({ changes: change })
 // 	return true
 // }
+
 type NameFile<T> = {
 	create: () => T,
 	update: (prev: T) => T,
@@ -138,13 +147,15 @@ async function checkFileName<T>(plugin: MyPlugin, config: NameFile<T>) {
 		try {
 			console.log("normalFilePath: ", normalFilePath)
 			if (fileUncheck === "" || await plugin.app.vault.adapter.exists(fileUncheck + MarkdownFileExtension)) {
-				state = config.update(state);
-				continue;
+				throw new Error("File Exist!");
 			}
+			plugin.app.vault.checkPath(normalFilePath)
 			return normalFilePath;
-			//@ts-ignore
-			//plugin.app.vault.checkPath()
+
 		} catch (error) {
+			state = config.update(state);
+			console.log(error.message);
+			continue;
 			//@ts-ignore
 			// folder = plugin.app.vault.getAbstractFileByPathInsensitive(normalFilePath);
 			// plugin.app.vault.adapter.exists(fileUncheck)
@@ -190,11 +201,12 @@ export const dragExtension = (plugin: MyPlugin) => {
 	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
 		let needToAddLinkFlag = false;
 		const handleDrop = (e: DragEvent) => {
-			console.log("can detect canvas?", e.target);
 			try {
-				if (e.target as HTMLCanvasElement) {
+				if (e.target instanceof HTMLCanvasElement) {
+					console.log("detect canvas", e.target);
 					needToAddLinkFlag = true;
 				} else {
+					console.log("detect other", e.target);
 					needToAddLinkFlag = false;
 				}
 			} catch (error) {
@@ -345,15 +357,26 @@ export const dragExtension = (plugin: MyPlugin) => {
 						})
 						view.dispatch(trans);
 						console.log("finish dispatch? transaction is", trans, "link is", fileLink);
-						// const ea = getEA();
-						// //@ts-ignore
-						// const eb = ExcalidrawLib;
-						// //@ts-ignore
-						// const eaView = ea.setView();
-						// console.log("can get EA?", ea);
-						// console.log("can get EB?", eb);
-						// const MAX_IMAGE_SIZE = 500;
-						// const _id = ea.addEmbeddable(
+						const ea = getEA();
+
+						//const eb = ExcalidrawLib;
+						const eaView = ea.setView();
+						const api = ea.getExcalidrawAPI();
+						const appState = api.getAppState();
+						const { width, height, offsetLeft, offsetTop } = appState;
+						console.log("getViewState", appState);
+
+						const position = getEALib().viewportCoordsToSceneCoords({
+							clientX: width / 2 + offsetLeft,
+							clientY: height / 2 + offsetTop,
+						}, appState);
+						console.log("can get EA?", ea);
+						//console.log("can get EB?", eb);
+						console.log("can get view?", eaView);
+						console.log("can get position?", position);
+						console.log("add embeddabel", ea.addEmbeddable);
+						const MAX_IMAGE_SIZE = 500;
+						//const _id = ea.addEmbeddable(
 						// 	eaView.currentPosition.x,
 						// 	eaView.currentPosition.y,
 						// 	MAX_IMAGE_SIZE,
@@ -361,7 +384,7 @@ export const dragExtension = (plugin: MyPlugin) => {
 						// 	fileLink,
 						// 	file
 						// );
-						// await ea.addElementsToView(false, true, true);
+						//await ea.addElementsToView(false, true, true);
 
 
 					}

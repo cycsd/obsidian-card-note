@@ -29,6 +29,9 @@ declare module "obsidian" {
       getPluginById(id: string): { instance: { options: { pinned: [] } } };
     };
   }
+  interface Vault {
+    checkPath(path: string): null
+  }
 
   interface FileManager {
     processFrontMatter: (
