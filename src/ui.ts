@@ -1,10 +1,11 @@
 import { App, Modal, Setting } from "obsidian";
 
+type Cancel = Record<string, never>;
 export class FileNameCheckModal extends Modal {
 
-    result: string | undefined;
-    onSubmit: (result: string | undefined) => void;
-    constructor(app: App, onSubmit: (result: string | undefined) => void, defaultValue?: string) {
+    result:string;
+    onSubmit: (result: string | Cancel) => void;
+    constructor(app: App, onSubmit: (result: string | Cancel) => void, defaultValue="") {
         super(app);
         this.result = defaultValue
         this.onSubmit = onSubmit;
@@ -19,28 +20,26 @@ export class FileNameCheckModal extends Modal {
                 text.onChange(value => {
                     this.result = value;
                 });
-            });
+			});
         new Setting(contentEl)
-            .addButton(btn => {
-                btn.setButtonText("Submit")
+			.addButton(btn => {
+                btn.setButtonText("Create")
                     .setCta()
                     .onClick(() => {
-                        this.onSubmit(this.result ?? "");
+                        this.onSubmit(this.result);
                         this.close();
                     })
-            });
-        new Setting(contentEl)
-            .addButton(btn => {
+            }).addButton(btn => {
                 btn.setButtonText("Cancel")
                     .setCta()
                     .onClick(() => {
-                        this.onSubmit(undefined);
+						this.onSubmit({});
                         this.close();
                     })
             })
     }
     onClose(): void {
-        let { contentEl } = this;
+        const { contentEl } = this;
         contentEl.empty();
     }
 
