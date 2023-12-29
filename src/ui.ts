@@ -1,8 +1,7 @@
 import { App, Modal, Setting } from "obsidian";
 
-type Cancel = Record<string, never>;
+type Cancel = undefined;
 export class FileNameCheckModal extends Modal {
-
     result:string;
     onSubmit: (result: string | Cancel) => void;
     constructor(app: App, onSubmit: (result: string | Cancel) => void, defaultValue="") {
@@ -33,7 +32,7 @@ export class FileNameCheckModal extends Modal {
                 btn.setButtonText("Cancel")
                     .setCta()
                     .onClick(() => {
-						this.onSubmit({});
+						this.onSubmit(undefined);
                         this.close();
                     })
             })

@@ -1,3 +1,18 @@
+# CardNote Plugin
+This plugin extract your thought by 
+"drag and drop", help you refact your note more quickly with obsidian excalidraw plugin.
+
+> # You don't need to use this plugin
+> ## if you are comforable with steps below
+> 1. use obsidian Note composer to extract your thought to new note
+> 2. insert markdown file to excalidraw canvas.
+
+## Insatllation
+excalidraw
+
+## Road Map
+- support obsidian canvas
+
 # Obsidian Sample Plugin
 
 This is a sample plugin for Obsidian (https://obsidian.md).

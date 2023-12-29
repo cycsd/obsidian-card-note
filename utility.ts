@@ -23,33 +23,45 @@ export function throttle<T extends unknown[], V>(
 export const LineBreak = "\n";
 export const MarkdownFileExtension = ".md";
 
-export type Break = Record<string, never>;
+export type Break = undefined;
+export type FileInfo = {
+	fileName: string,
+	folderPath: string,
+	extension: string,
+}
 export type NameFile<T> = {
 	create: () => T,
 	update: (prev: T) => T,
-	provide: (arg: T, unapprove: TFile | TFolder | undefined) => Promise<string | Break>,
+	provide: (arg: T, unapprove: TFile | TFolder | undefined) => Promise<FileInfo | Break>,
 }
-export function isBreak(name: string | Break): name is Break {
-	return typeof (name) !== "string";
+export function isBreak(name: any): name is Break {
+	return name === undefined;
 }
-export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>) {
+export function createFullPath(file: FileInfo) {
+	const fileName = `${file.fileName}${file.extension}`;
+	return file.folderPath.length === 0
+		? fileName
+		: `${file.folderPath}/${fileName}`;
+}
+export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>): Promise<FileInfo | Break> {
 	let state = config.create();
 	let folder;
 	while (true) {
-		const fileUncheck = await config.provide(state, folder);
-		if (isBreak(fileUncheck)) {
-			return fileUncheck;
+		const file = await config.provide(state, folder);
+		if (isBreak(file)) {
+			return file;
 		}
-		const normalFilePath = normalizePath(fileUncheck);
+		const filePathUncheck = createFullPath(file)
+		const normalFilePath = normalizePath(filePathUncheck);
 		try {
-			if (fileUncheck.length === 0) {
+			if (filePathUncheck.length === 0) {
 				throw new Error("File Name can not be empty");
 			}
-			if (fileUncheck === "" || await plugin.app.vault.adapter.exists(fileUncheck + MarkdownFileExtension)) {
+			if (filePathUncheck === "" || await plugin.app.vault.adapter.exists(normalFilePath)) {
 				throw new Error("File Exist!");
 			}
 			plugin.app.vault.checkPath(normalFilePath)
-			return normalFilePath;
+			return file;
 
 		} catch (error) {
 			state = config.update(state);
@@ -59,17 +71,26 @@ export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>) {
 	}
 }
 export async function createDefaultFileName(plugin: CardNote, content: string) {
-	const filePath = content.split(LineBreak, 1)[0].substring(0, 20);
+	const folderPath = plugin.settings.defaultFolder;
+	const fileName = content.split(LineBreak, 1)[0].substring(0, 20);
 	const createRandomFileName = () => {
 		return checkFileName(plugin, {
 			create: () => {
 				return { name: "NewNote", count: 0 };
 			},
 			update: (prev) => ({ name: prev.name, count: prev.count + 1 }),
-			provide: (arg) => Promise.resolve(arg.name + arg.count),
+			provide: (arg) => Promise.resolve({
+				folderPath,
+				fileName: `${arg.name}${arg.count}`,
+				extension: MarkdownFileExtension,
+			}),
 		})
 	}
-	return filePath.length !== 0
-		? filePath
-		: await createRandomFileName();
+	return fileName.length !== 0
+		? {
+			folderPath,
+			fileName,
+			extension: MarkdownFileExtension,
+		}
+		: await createRandomFileName() as FileInfo;
 }

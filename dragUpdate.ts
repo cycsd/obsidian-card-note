@@ -1,10 +1,13 @@
 import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet } from "@codemirror/state";
-import { Break, checkFileName, createDefaultFileName, isBreak, MarkdownFileExtension, throttle } from "utility";
+import { Break, checkFileName, createDefaultFileName, createFullPath, FileInfo, isBreak, MarkdownFileExtension, throttle } from "utility";
 import { MarkdownRenderer, TFile } from "obsidian";
 import { FileNameCheckModal } from "src/ui";
-import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing } from "src/adapters/obsidian-excalidraw-plugin";
+import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
+import { isObsidianCanvasView } from "src/adapters/obsidian";
+//import { CanvasNodeData } from "obsidian/canvas"
+
 
 
 type Selection = {
@@ -12,18 +15,25 @@ type Selection = {
 	to: number,
 }
 
-async function getUerRename(plugin: CardNote, defaultFilePath: string) {
+async function getUerRename(plugin: CardNote, defaultFile: FileInfo) {
+	const folderPath = plugin.settings.defaultFolder;
 	const getUserRename = (defaultValue?: string) => {
-		return new Promise<string | Break>(resolve => {
+		return new Promise<FileInfo | Break>(resolve => {
 			new FileNameCheckModal(plugin.app, value => {
-				resolve(value);
+				resolve(isBreak(value)
+					? value
+					: {
+						folderPath,
+						fileName: value,
+						extension: MarkdownFileExtension,
+					});
 			}, defaultValue)
 				.open();
 		})
 	}
 	const userCheckPath = await checkFileName(plugin, {
 		create() {
-			return defaultFilePath as string;
+			return defaultFile.fileName;
 		},
 		update(prev) {
 			return prev;
@@ -45,20 +55,39 @@ export const dragExtension = (plugin: CardNote) => {
 		let info: { content: string, lines: Selection[] };
 		let drawMethod: (fileLink: string, file: TFile, plugin: CardNote) => void;
 		const handleDrop = (e: DragEvent) => {
-			if (e.target instanceof HTMLCanvasElement) {
+			plugin.app.dragManager.handled
+			const locate = plugin.app.workspace.getDropLocation(e);
+			const target = locate.children.find(child => child.tabHeaderEl.className.contains("active"));
+			const drawView = target?.view;
+			console.log("locate", locate);
+			console.log("target", target);
+			console.log("canvas view", drawView);
+			if (e.target instanceof HTMLCanvasElement && isExcalidrawView(drawView)) {
 				needToAddLinkFlag = true;
-				drawMethod = insertEmbeddableNoteOnDrawing;
-			} else {
+				drawMethod = (fileLink, file, plugin) => insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin,);
+			} else if (isObsidianCanvasView(drawView)) {
+				needToAddLinkFlag = true;
+				const pos = drawView.canvas.posFromEvt(e);
+				console.log("position", pos);
+				drawMethod = (fileLink, file, plugin) => {
+					const returnValue = drawView.canvas.createFileNode({ file, pos });
+					console.log("draw on obsidian canvas", returnValue);
+				}
+			}
+			else {
 				needToAddLinkFlag = false;
+				//obsidian canvas is div wrap
+				//console.log("not in canvase", e.target);
 			}
 		};
-		const handleDragOver = (e: DragEvent) => {
+		const displayContentWhenDragging = (e: DragEvent) => {
 			if (ghost) {
 				moveElement(ghost, e.clientX, e.clientY);
 			}
 			e.preventDefault();
 		};
 
+		dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
 			const getSelection = (): { content: string, lines: Selection[] } => {
 				const selectLines = view.state.selection.ranges.map(range => ({
@@ -80,34 +109,40 @@ export const dragExtension = (plugin: CardNote) => {
 			}
 			const defaultSelect = getSelection();
 			info = defaultSelect.content.length !== 0 ? defaultSelect : getLineString();
-			if (!ghost) {
-				const div = document.createElement("div");
-				//set position to absolute and append it to body to show custom element when dragging
-				div.style.position = "absolute";
-				div.setCssStyles({
-					padding: "5px 25px",
-					borderStyle: "solid",
-					borderWidth: "3px",
-					borderRadius: "10px",
-					width: "300px",
-					minHeight: "200px",
-				})
-				moveElement(div, 1000, -1000);
-				ghost = container.appendChild(div);
-			}
-			else {
-				ghost = container.appendChild(ghost);
-			}
-			MarkdownRenderer.render(
-				plugin.app,
-				info.content,
-				ghost,
-				"",
-				plugin);
+
+			//Drag table will cause dragend event would be triggerd immediately at dragstart
+			//https://stackoverflow.com/questions/19639969/html5-dragend-event-firing-immediately
+			setTimeout(() => {
+				if (!ghost) {
+					const div = document.createElement("div");
+					//set position to absolute and append it to body to show custom element when dragging
+					div.style.position = "absolute";
+					div.setCssStyles({
+						padding: "5px 25px",
+						borderStyle: "solid",
+						borderWidth: "3px",
+						borderRadius: "10px",
+						width: "300px",
+						minHeight: "200px",
+					})
+					moveElement(div, e.clientX, e.clientY);
+					ghost = container.appendChild(div);
+				}
+				else {
+					ghost = container.appendChild(ghost);
+				}
+				MarkdownRenderer.render(
+					plugin.app,
+					info.content,
+					ghost,
+					"",
+					plugin);
+			});
+
 			plugin.registerDomEvent(container, "drop", handleDrop);
-			plugin.registerDomEvent(container, "dragover", handleDragOver);
-			(e.dataTransfer as any).effectAllowed = "all";
-			// e.dataTransfer?.setDragImage(
+			//plugin.registerDomEvent(container, "dragover", handleDragOver);
+			//(e.dataTransfer as any).effectAllowed = "all";
+			//e.dataTransfer?.setDragImage(
 			// 	ghost,
 			// 	0,
 			// 	0
@@ -116,7 +151,7 @@ export const dragExtension = (plugin: CardNote) => {
 
 		const reset = () => {
 			container.removeEventListener("drop", handleDrop);
-			container.removeEventListener("dragover", handleDragOver);
+			//container.removeEventListener("dragover", handleDragOver);
 			container.removeChild(ghost);
 			ghost.replaceChildren();
 			const flagRest = () => {
@@ -140,7 +175,7 @@ export const dragExtension = (plugin: CardNote) => {
 			const dragSymbol = document.createElement("div");
 			dragSymbol.draggable = true;
 			const symbol = dragSymbol.createSpan();
-			symbol.innerText = "💔";
+			symbol.innerText = plugin.settings.dragSymbol;
 			symbol.style.fontSize = "18px";
 
 			const { reset, getInfo, insertLinkOnDrawing } = addDragStartEvent(dragSymbol, view);
@@ -150,11 +185,14 @@ export const dragExtension = (plugin: CardNote) => {
 					dropOnCanvas.flagRest();
 					const pluginApp = plugin.app;
 					const info = getInfo();
-					const filePath = await createDefaultFileName(plugin, info.content);
-					const userCheckPath = await getUerRename(plugin, filePath as string);
+					const defaultFile = await createDefaultFileName(plugin, info.content);
+					const userCheckPath = await getUerRename(plugin, defaultFile);
 					if (!isBreak(userCheckPath)) {
 						//replace editor's select line or text with link
-						const file = await pluginApp.vault.create(userCheckPath + MarkdownFileExtension, info.content)
+						const filePath = createFullPath(userCheckPath);
+						console.log(filePath);
+						pluginApp.vault.createFolder
+						const file = await pluginApp.vault.create(filePath, info.content);
 						const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
 							file,
 							file.path,

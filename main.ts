@@ -5,13 +5,16 @@ import {
 	Setting,
 } from "obsidian";
 import { dragExtension } from "dragUpdate";
+
 // Remember to rename these classes and interfaces!
 interface CardNoteSettings {
-	mySetting: string;
+	dragSymbol: string,
+	defaultFolder: string,
 }
 
 const DEFAULT_SETTINGS: CardNoteSettings = {
-	mySetting: "default",
+	dragSymbol: "💔",
+	defaultFolder: "",
 };
 export default class CardNote extends Plugin {
 	settings: CardNoteSettings;
@@ -59,14 +62,26 @@ class CardNoteTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 		new Setting(containerEl)
-			.setName("Setting #1")
-			.setDesc("It's a secret")
+			.setName("Drag Symbol")
+			.setDesc("you can set your prefer drag symbol here")
 			.addText((text) =>
 				text
-					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.mySetting)
+					.setPlaceholder("Enter your drag symbol here")
+					.setValue(this.plugin.settings.dragSymbol)
 					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
+						this.plugin.settings.dragSymbol = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Default Folder")
+			.setDesc("Default loction for new note. if empty, new note will be created in the Vault root.")
+			.addText((text) =>
+				text
+					.setPlaceholder("folder in the vault/sub folder name")
+					.setValue(this.plugin.settings.defaultFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.defaultFolder = value;
 						await this.plugin.saveSettings();
 					})
 			);

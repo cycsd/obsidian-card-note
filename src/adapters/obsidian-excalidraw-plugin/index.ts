@@ -1,19 +1,24 @@
+import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 import CardNote from "main";
 import "obsidian";
-import { TFile } from "obsidian";
+import { TFile} from "obsidian";
 export type { ExcalidrawBindableElement, ExcalidrawElement, FileId, FillStyle, StrokeRoundness, StrokeStyle } from "@zsviczian/excalidraw/types/element/types";
 export type { ExcalidrawImperativeAPI, Point } from "@zsviczian/excalidraw/types/types";
 import { getEA as excalidrawGetEA } from "obsidian-excalidraw-plugin";
 import {ExcalidrawAutomate} from "obsidian-excalidraw-plugin/lib/ExcalidrawAutomate"
 
+export const VIEW_TYPE_EXCALIDRAW = "excalidraw";
 export function getEA(view?: any): ExcalidrawAutomate {
     return excalidrawGetEA(view);
 }
+export function isExcalidrawView(view: any): view is ExcalidrawView{
+	return view.getViewType() === VIEW_TYPE_EXCALIDRAW;
+}
 const MAX_IMAGE_SIZE = 500;
-export async function insertEmbeddableOnDrawing(fileLink:string,file:TFile,plugin:CardNote) {
+export async function insertEmbeddableOnDrawing(view:ExcalidrawView,fileLink:string,file:TFile,plugin:CardNote) {
 	try {
 		const ea = getEA();
-		const eaView = ea.setView();
+		const eaView = ea.setView(view);
 		const id = ea.addEmbeddable(
 		eaView.currentPosition.x,
 		eaView.currentPosition.y,

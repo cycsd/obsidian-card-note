@@ -107,7 +107,11 @@ declare module "obsidian" {
       item: WorkspaceItem | WorkspaceItem[],
       callback: (item: WorkspaceLeaf) => boolean | void
     ): boolean;
-    getDropLocation(event: MouseEvent): {
+	getDropLocation(event: MouseEvent): {
+		children: {
+			tabHeaderEl:HTMLElement,
+			view:TextFileView
+		}[],
       target: WorkspaceItem;
       sidedock: boolean;
     };
