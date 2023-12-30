@@ -54,25 +54,56 @@ export const dragExtension = (plugin: CardNote) => {
 		let ghost: HTMLElement;
 		let info: { content: string, lines: Selection[] };
 		let drawMethod: (fileLink: string, file: TFile, plugin: CardNote) => void;
-		const handleDrop = (e: DragEvent) => {
-			plugin.app.dragManager.handled
+		const handleDrop = async (e: DragEvent) => {
+			const createFileAndDraw = async (draw: (file: TFile, link: string) => void) => {
+				const pluginApp = plugin.app;
+				const defaultFile = await createDefaultFileName(plugin, info.content);
+				const userCheckPath = await getUerRename(plugin, defaultFile);
+				if (!isBreak(userCheckPath)) {
+					//replace editor's select line or text with link
+					const filePath = createFullPath(userCheckPath);
+					console.log(filePath);
+					const file = await pluginApp.vault.create(filePath, info.content);
+					const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
+						file,
+						file.path,
+						file.extension === "md",
+					)}]]`;
+					const replaceTextWithLink = () => {
+						const trans = view.state.update({
+							changes: info.lines.map(line => {
+								return { from: line.from, to: line.to, insert: fileLink }
+							})
+						})
+						view.dispatch(trans);
+					};
+					replaceTextWithLink();
+					draw(file, fileLink);
+				}
+			}
 			const locate = plugin.app.workspace.getDropLocation(e);
 			const target = locate.children.find(child => child.tabHeaderEl.className.contains("active"));
 			const drawView = target?.view;
 			console.log("locate", locate);
 			console.log("target", target);
 			console.log("canvas view", drawView);
-			if (e.target instanceof HTMLCanvasElement && isExcalidrawView(drawView)) {
-				needToAddLinkFlag = true;
-				drawMethod = (fileLink, file, plugin) => insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin,);
+			if (isExcalidrawView(drawView)) {
+				//needToAddLinkFlag = true;
+				createFileAndDraw((file, fileLink) => {
+					insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin);
+				});
+				//drawMethod = (fileLink, file, plugin) => insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin,);
 			} else if (isObsidianCanvasView(drawView)) {
-				needToAddLinkFlag = true;
+				//needToAddLinkFlag = true;
 				const pos = drawView.canvas.posFromEvt(e);
 				console.log("position", pos);
-				drawMethod = (fileLink, file, plugin) => {
-					const returnValue = drawView.canvas.createFileNode({ file, pos });
-					console.log("draw on obsidian canvas", returnValue);
-				}
+				createFileAndDraw((file, fileLink) => {
+					drawView.canvas.createFileNode({ file, pos });
+				})
+				// drawMethod = (fileLink, file, plugin) => {
+				// 	const returnValue = drawView.canvas.createFileNode({ file, pos });
+				// 	console.log("draw on obsidian canvas", returnValue);
+				// }
 			}
 			else {
 				needToAddLinkFlag = false;
@@ -154,18 +185,18 @@ export const dragExtension = (plugin: CardNote) => {
 			//container.removeEventListener("dragover", handleDragOver);
 			container.removeChild(ghost);
 			ghost.replaceChildren();
-			const flagRest = () => {
-				needToAddLinkFlag = false;
-			};
-			return needToAddLinkFlag
-				? { flagRest }
-				: needToAddLinkFlag;
+			// const flagRest = () => {
+			// 	needToAddLinkFlag = false;
+			// };
+			// return needToAddLinkFlag
+			// 	? { flagRest }
+			// 	: needToAddLinkFlag;
 		};
 
 		return {
 			reset,
-			getInfo: () => info,
-			insertLinkOnDrawing: (fileLink: string, file: TFile, plugin: CardNote) => drawMethod?.(fileLink, file, plugin),
+			// getInfo: () => info,
+			// insertLinkOnDrawing: (fileLink: string, file: TFile, plugin: CardNote) => drawMethod?.(fileLink, file, plugin),
 		}
 	}
 	const dragMarker = new (class extends GutterMarker {
@@ -178,39 +209,40 @@ export const dragExtension = (plugin: CardNote) => {
 			symbol.innerText = plugin.settings.dragSymbol;
 			symbol.style.fontSize = "18px";
 
-			const { reset, getInfo, insertLinkOnDrawing } = addDragStartEvent(dragSymbol, view);
+			const { reset } = addDragStartEvent(dragSymbol, view);
 			dragSymbol.addEventListener("dragend", async (e) => {
-				const dropOnCanvas = reset();
-				if (dropOnCanvas) {
-					dropOnCanvas.flagRest();
-					const pluginApp = plugin.app;
-					const info = getInfo();
-					const defaultFile = await createDefaultFileName(plugin, info.content);
-					const userCheckPath = await getUerRename(plugin, defaultFile);
-					if (!isBreak(userCheckPath)) {
-						//replace editor's select line or text with link
-						const filePath = createFullPath(userCheckPath);
-						console.log(filePath);
-						pluginApp.vault.createFolder
-						const file = await pluginApp.vault.create(filePath, info.content);
-						const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
-							file,
-							file.path,
-							file.extension === "md",
-						)}]]`;
-						const replaceTextWithLink = () => {
-							const trans = view.state.update({
-								changes: info.lines.map(line => {
-									return { from: line.from, to: line.to, insert: fileLink }
-								})
-							})
-							view.dispatch(trans);
-						};
-						replaceTextWithLink();
-						insertLinkOnDrawing(fileLink, file, plugin);
+				reset();
+				//const dropOnCanvas = 
+				// if (dropOnCanvas) {
+				// 	dropOnCanvas.flagRest();
+				// 	const pluginApp = plugin.app;
+				// 	const info = getInfo();
+				// 	const defaultFile = await createDefaultFileName(plugin, info.content);
+				// 	const userCheckPath = await getUerRename(plugin, defaultFile);
+				// 	if (!isBreak(userCheckPath)) {
+				// 		//replace editor's select line or text with link
+				// 		const filePath = createFullPath(userCheckPath);
+				// 		console.log(filePath);
+				// 		pluginApp.vault.createFolder
+				// 		const file = await pluginApp.vault.create(filePath, info.content);
+				// 		const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
+				// 			file,
+				// 			file.path,
+				// 			file.extension === "md",
+				// 		)}]]`;
+				// 		const replaceTextWithLink = () => {
+				// 			const trans = view.state.update({
+				// 				changes: info.lines.map(line => {
+				// 					return { from: line.from, to: line.to, insert: fileLink }
+				// 				})
+				// 			})
+				// 			view.dispatch(trans);
+				// 		};
+				// 		replaceTextWithLink();
+				// 		insertLinkOnDrawing(fileLink, file, plugin);
 
-					}
-				}
+				// 	}
+				// }
 			});
 
 			return dragSymbol;
