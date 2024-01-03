@@ -1,5 +1,5 @@
-//import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
-import { ExcalidrawImperativeAPI } from "..";
+import { ExcalidrawImperativeAPI } from '..';
+//import ExcalidrawView from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 
 
 
@@ -15,9 +15,10 @@ declare module "obsidian-excalidraw-plugin/lib/ExcalidrawAutomate" {
 
 	}
 }
-declare module "obsidian-excalidraw-plugin/lib/ExcalidrawView" {
+declare module 'obsidian-excalidraw-plugin/lib/ExcalidrawView' {
 	interface ExcalidrawView{
 		currentPosition: { x: number, y: number };
+		excalidrawAPI: ExcalidrawImperativeAPI;
 	}
 }
 

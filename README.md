@@ -1,17 +1,28 @@
-# CardNote Plugin
-This plugin extract your thought by 
-"drag and drop", help you refact your note more quickly with obsidian excalidraw plugin.
+# CardNote
+此工具藉由滑鼠拖拉施放，將創建筆記及在圖像化工具中插入筆記的功能整合為一，協助你更快速的在[Obsidian Canvas](https://obsidian.md/canvas) 及 [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin)上建立圖像化的筆記
+
+This tool integrates creating notes and inserting notes into visualized tools by "dragging and dropping". It assists you in quickly building visualized notes on [Obsidian Canvas](https://obsidian.md/canvas)and the [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin).
+
+
+> # 如果你對下方步驟熟悉且還不會厭煩的話，你不需要使用此插件
+> 1. 選擇想要整理的段落，並在編輯器上右鍵開啟工具菜單
+> 2. 點選擷取目前內容至其他檔案
+> 3. 在 [Obsidian Canvas](https://obsidian.md/canvas) 或 [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin)點選右鍵開啟工具菜單
+> 4. 點選插入檔案，將剛剛創建的檔案插入至畫布中
 
 > # You don't need to use this plugin
-> ## if you are comforable with steps below
-> 1. use obsidian Note composer to extract your thought to new note
-> 2. insert markdown file to excalidraw canvas.
+> ## if you are comforable with flowing steps:
+> 1. Right-click to open the tools menu in the editor
+> 2. Use Obsidian Note Composer to extract your thoughts into a new note
+> 3. Right-click to open the tools in [Obsidian Canvas](https://obsidian.md/canvas) or [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin)
+> 4. insert markdown file to canvas.
 
-## Insatllation
+
+
+# Example
 excalidraw
 
-## Road Map
-- support obsidian canvas
+
 
 # Obsidian Sample Plugin
 

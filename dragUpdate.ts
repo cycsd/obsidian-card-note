@@ -6,7 +6,6 @@ import { MarkdownRenderer, TFile } from "obsidian";
 import { FileNameCheckModal } from "src/ui";
 import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isObsidianCanvasView } from "src/adapters/obsidian";
-//import { CanvasNodeData } from "obsidian/canvas"
 
 
 
@@ -47,13 +46,77 @@ async function getUerRename(plugin: CardNote, defaultFile: FileInfo) {
 function moveElement(elm: HTMLElement, x: number, y: number) {
 	elm.style.transform = `translate(${x}px,${y}px)`;
 }
+function findIframe(elm: HTMLElement | null | undefined) {
+	let el = elm?.win.frameElement
+	// let iframe: HTMLIFrameElement | undefined;
+	// while (el) {
+	// 	if (el instanceof HTMLIFrameElement) {
+	// 		iframe = el;
+	// 		console.log("iframe in while: ", iframe);
+	// 	}
+	// 	console.log("while parent", el.parentElement);
+	// 	el = el.parentElement
+	// }
+
+	return el;
+}
+function computeIframeOffect(iframe: Element) {
+	let enter = true;
+	const aroundFrame = (
+		pos: { x: number, y: number },
+		rect: DOMRect,
+		margin = 10) => {
+		console.log("compute around frame");
+		console.log("pos:", pos);
+		console.log("rectangle", rect);
+		return pos.x > rect.left - margin
+			&& pos.x < rect.right + margin
+			&& pos.y > rect.top - margin
+			&& pos.y < rect.bottom + margin
+	}
+	const inFrame = (
+		pos: { x: number, y: number },
+		rect: DOMRect) => {
+		console.log("in pos:", pos);
+		console.log("in rectangle", rect);
+		return pos.x >= 0
+			&& pos.x <= rect.width
+			&& pos.y >= 0
+			&& pos.y <= rect.height
+	}
+	return (e: DragEvent) => {
+		let pos = getPosition(e);
+		console.log("in offset", pos);
+		const rect = iframe.getBoundingClientRect();
+		const inframe = inFrame(pos, rect) && enter;
+		console.log("in iframe?", inframe);
+		enter = inframe || aroundFrame(pos, rect);
+		console.log("enter? ", enter);
+
+		pos = inframe
+			? { x: pos.x + rect.x, y: pos.y + rect.y }
+			: pos;
+		return pos;
+	}
+
+}
+function getPosition(e: DragEvent) {
+	console.log("get position", { x: e.clientX, y: e.clientY });
+	return { x: e.clientX, y: e.clientY };
+}
+
 export const dragExtension = (plugin: CardNote) => {
 	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
 		const container = plugin.app.workspace.containerEl;
 		let needToAddLinkFlag = false;
 		let ghost: HTMLElement;
+		let dragoverBackground: HTMLElement;
+		let offset: (e: DragEvent) => {
+			x: number;
+			y: number;
+		} = getPosition;
 		let info: { content: string, lines: Selection[] };
-		let drawMethod: (fileLink: string, file: TFile, plugin: CardNote) => void;
+
 		const handleDrop = async (e: DragEvent) => {
 			const createFileAndDraw = async (draw: (file: TFile, link: string) => void) => {
 				const pluginApp = plugin.app;
@@ -90,7 +153,7 @@ export const dragExtension = (plugin: CardNote) => {
 			if (isExcalidrawView(drawView)) {
 				//needToAddLinkFlag = true;
 				createFileAndDraw((file, fileLink) => {
-					insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin);
+					insertEmbeddableNoteOnDrawing(e, drawView, fileLink, file, plugin);
 				});
 				//drawMethod = (fileLink, file, plugin) => insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin,);
 			} else if (isObsidianCanvasView(drawView)) {
@@ -113,13 +176,22 @@ export const dragExtension = (plugin: CardNote) => {
 		};
 		const displayContentWhenDragging = (e: DragEvent) => {
 			if (ghost) {
-				moveElement(ghost, e.clientX, e.clientY);
+				console.log("dragging", e);
+				const pos = offset(e)
+				moveElement(ghost, pos.x, pos?.y);
 			}
 			e.preventDefault();
 		};
 
-		dragSymbol.addEventListener("drag", displayContentWhenDragging);
+		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
+			const iframe = findIframe(e.targetNode?.parentElement);
+			console.log("detect Iframe?", iframe);
+			offset = iframe
+				? computeIframeOffect(iframe)
+				: getPosition;
+			//offset = getPosition;
+
 			const getSelection = (): { content: string, lines: Selection[] } => {
 				const selectLines = view.state.selection.ranges.map(range => ({
 					from: range.from,
@@ -157,10 +229,19 @@ export const dragExtension = (plugin: CardNote) => {
 						minHeight: "200px",
 					})
 					moveElement(div, e.clientX, e.clientY);
+					const bg = document.createElement("div");
+					bg.setCssStyles({
+						opacity: '0',
+						width: '100%',
+						height: '100%',
+						position: 'fixed',
+					})
+					dragoverBackground = container.appendChild(bg);
 					ghost = container.appendChild(div);
 				}
 				else {
 					ghost = container.appendChild(ghost);
+					dragoverBackground = container.appendChild(dragoverBackground);
 				}
 				MarkdownRenderer.render(
 					plugin.app,
@@ -171,7 +252,7 @@ export const dragExtension = (plugin: CardNote) => {
 			});
 
 			plugin.registerDomEvent(container, "drop", handleDrop);
-			//plugin.registerDomEvent(container, "dragover", handleDragOver);
+			plugin.registerDomEvent(container, "dragover", displayContentWhenDragging);
 			//(e.dataTransfer as any).effectAllowed = "all";
 			//e.dataTransfer?.setDragImage(
 			// 	ghost,
@@ -182,9 +263,12 @@ export const dragExtension = (plugin: CardNote) => {
 
 		const reset = () => {
 			container.removeEventListener("drop", handleDrop);
-			//container.removeEventListener("dragover", handleDragOver);
+			container.removeEventListener("dragover", displayContentWhenDragging);
 			container.removeChild(ghost);
+			container.removeChild(dragoverBackground);
+			console.log("background: ", dragoverBackground);
 			ghost.replaceChildren();
+			offset = getPosition;
 			// const flagRest = () => {
 			// 	needToAddLinkFlag = false;
 			// };
@@ -210,6 +294,7 @@ export const dragExtension = (plugin: CardNote) => {
 			symbol.style.fontSize = "18px";
 
 			const { reset } = addDragStartEvent(dragSymbol, view);
+
 			dragSymbol.addEventListener("dragend", async (e) => {
 				reset();
 				//const dropOnCanvas = 
