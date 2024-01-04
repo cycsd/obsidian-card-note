@@ -7,8 +7,6 @@ import { FileNameCheckModal } from "src/ui";
 import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isObsidianCanvasView } from "src/adapters/obsidian";
 
-
-
 type Selection = {
 	from: number,
 	to: number,
@@ -46,75 +44,15 @@ async function getUerRename(plugin: CardNote, defaultFile: FileInfo) {
 function moveElement(elm: HTMLElement, x: number, y: number) {
 	elm.style.transform = `translate(${x}px,${y}px)`;
 }
-function findIframe(elm: HTMLElement | null | undefined) {
-	let el = elm?.win.frameElement
-	// let iframe: HTMLIFrameElement | undefined;
-	// while (el) {
-	// 	if (el instanceof HTMLIFrameElement) {
-	// 		iframe = el;
-	// 		console.log("iframe in while: ", iframe);
-	// 	}
-	// 	console.log("while parent", el.parentElement);
-	// 	el = el.parentElement
-	// }
-
-	return el;
-}
-function computeIframeOffect(iframe: Element) {
-	let enter = true;
-	const aroundFrame = (
-		pos: { x: number, y: number },
-		rect: DOMRect,
-		margin = 10) => {
-		console.log("compute around frame");
-		console.log("pos:", pos);
-		console.log("rectangle", rect);
-		return pos.x > rect.left - margin
-			&& pos.x < rect.right + margin
-			&& pos.y > rect.top - margin
-			&& pos.y < rect.bottom + margin
-	}
-	const inFrame = (
-		pos: { x: number, y: number },
-		rect: DOMRect) => {
-		console.log("in pos:", pos);
-		console.log("in rectangle", rect);
-		return pos.x >= 0
-			&& pos.x <= rect.width
-			&& pos.y >= 0
-			&& pos.y <= rect.height
-	}
-	return (e: DragEvent) => {
-		let pos = getPosition(e);
-		console.log("in offset", pos);
-		const rect = iframe.getBoundingClientRect();
-		const inframe = inFrame(pos, rect) && enter;
-		console.log("in iframe?", inframe);
-		enter = inframe || aroundFrame(pos, rect);
-		console.log("enter? ", enter);
-
-		pos = inframe
-			? { x: pos.x + rect.x, y: pos.y + rect.y }
-			: pos;
-		return pos;
-	}
-
-}
 function getPosition(e: DragEvent) {
-	console.log("get position", { x: e.clientX, y: e.clientY });
 	return { x: e.clientX, y: e.clientY };
 }
 
 export const dragExtension = (plugin: CardNote) => {
 	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
 		const container = plugin.app.workspace.containerEl;
-		let needToAddLinkFlag = false;
 		let ghost: HTMLElement;
 		let dragoverBackground: HTMLElement;
-		let offset: (e: DragEvent) => {
-			x: number;
-			y: number;
-		} = getPosition;
 		let info: { content: string, lines: Selection[] };
 
 		const handleDrop = async (e: DragEvent) => {
@@ -147,37 +85,20 @@ export const dragExtension = (plugin: CardNote) => {
 			const locate = plugin.app.workspace.getDropLocation(e);
 			const target = locate.children.find(child => child.tabHeaderEl.className.contains("active"));
 			const drawView = target?.view;
-			console.log("locate", locate);
-			console.log("target", target);
-			console.log("canvas view", drawView);
 			if (isExcalidrawView(drawView)) {
-				//needToAddLinkFlag = true;
 				createFileAndDraw((file, fileLink) => {
 					insertEmbeddableNoteOnDrawing(e, drawView, fileLink, file, plugin);
 				});
-				//drawMethod = (fileLink, file, plugin) => insertEmbeddableNoteOnDrawing(drawView, fileLink, file, plugin,);
 			} else if (isObsidianCanvasView(drawView)) {
-				//needToAddLinkFlag = true;
 				const pos = drawView.canvas.posFromEvt(e);
-				console.log("position", pos);
 				createFileAndDraw((file, fileLink) => {
 					drawView.canvas.createFileNode({ file, pos });
 				})
-				// drawMethod = (fileLink, file, plugin) => {
-				// 	const returnValue = drawView.canvas.createFileNode({ file, pos });
-				// 	console.log("draw on obsidian canvas", returnValue);
-				// }
-			}
-			else {
-				needToAddLinkFlag = false;
-				//obsidian canvas is div wrap
-				//console.log("not in canvase", e.target);
 			}
 		};
 		const displayContentWhenDragging = (e: DragEvent) => {
 			if (ghost) {
-				console.log("dragging", e);
-				const pos = offset(e)
+				const pos = getPosition(e);
 				moveElement(ghost, pos.x, pos?.y);
 				if (!ghost.isShown()) {
 					ghost.show();
@@ -185,16 +106,8 @@ export const dragExtension = (plugin: CardNote) => {
 			}
 			e.preventDefault();
 		};
-
 		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
-			const iframe = findIframe(e.targetNode?.parentElement);
-			console.log("detect Iframe?", iframe);
-			// offset = iframe
-			// 	? computeIframeOffect(iframe)
-			// 	: getPosition;
-			offset = getPosition;
-
 			const getSelection = (): { content: string, lines: Selection[] } => {
 				const selectLines = view.state.selection.ranges.map(range => ({
 					from: range.from,
@@ -222,24 +135,11 @@ export const dragExtension = (plugin: CardNote) => {
 				if (!ghost) {
 					const div = document.createElement("div");
 					//set position to absolute and append it to body to show custom element when dragging
-					div.style.position = "absolute";
+					div.addClass("ghost");
 					div.hide();
-					div.setCssStyles({
-						padding: "5px 25px",
-						borderStyle: "solid",
-						borderWidth: "3px",
-						borderRadius: "10px",
-						width: "300px",
-						minHeight: "200px",
-					})
 					moveElement(div, e.clientX, e.clientY);
 					const bg = document.createElement("div");
-					bg.setCssStyles({
-						opacity: '0',
-						width: '100%',
-						height: '100%',
-						position: 'fixed',
-					})
+					bg.addClass("dragbackground")
 					dragoverBackground = container.appendChild(bg);
 					ghost = container.appendChild(div);
 				}
@@ -254,15 +154,8 @@ export const dragExtension = (plugin: CardNote) => {
 					"",
 					plugin);
 			});
-
 			plugin.registerDomEvent(container, "drop", handleDrop);
 			plugin.registerDomEvent(container, "dragover", displayContentWhenDragging);
-			//(e.dataTransfer as any).effectAllowed = "all";
-			//e.dataTransfer?.setDragImage(
-			// 	ghost,
-			// 	0,
-			// 	0
-			// );
 		});
 
 		const reset = () => {
@@ -270,21 +163,11 @@ export const dragExtension = (plugin: CardNote) => {
 			container.removeEventListener("dragover", displayContentWhenDragging);
 			container.removeChild(ghost);
 			container.removeChild(dragoverBackground);
-			console.log("background: ", dragoverBackground);
 			ghost.replaceChildren();
-			offset = getPosition;
-			// const flagRest = () => {
-			// 	needToAddLinkFlag = false;
-			// };
-			// return needToAddLinkFlag
-			// 	? { flagRest }
-			// 	: needToAddLinkFlag;
 		};
 
 		return {
 			reset,
-			// getInfo: () => info,
-			// insertLinkOnDrawing: (fileLink: string, file: TFile, plugin: CardNote) => drawMethod?.(fileLink, file, plugin),
 		}
 	}
 	const dragMarker = new (class extends GutterMarker {
@@ -299,39 +182,8 @@ export const dragExtension = (plugin: CardNote) => {
 
 			const { reset } = addDragStartEvent(dragSymbol, view);
 
-			dragSymbol.addEventListener("dragend", async (e) => {
+			dragSymbol.addEventListener("dragend", (e) => {
 				reset();
-				//const dropOnCanvas = 
-				// if (dropOnCanvas) {
-				// 	dropOnCanvas.flagRest();
-				// 	const pluginApp = plugin.app;
-				// 	const info = getInfo();
-				// 	const defaultFile = await createDefaultFileName(plugin, info.content);
-				// 	const userCheckPath = await getUerRename(plugin, defaultFile);
-				// 	if (!isBreak(userCheckPath)) {
-				// 		//replace editor's select line or text with link
-				// 		const filePath = createFullPath(userCheckPath);
-				// 		console.log(filePath);
-				// 		pluginApp.vault.createFolder
-				// 		const file = await pluginApp.vault.create(filePath, info.content);
-				// 		const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
-				// 			file,
-				// 			file.path,
-				// 			file.extension === "md",
-				// 		)}]]`;
-				// 		const replaceTextWithLink = () => {
-				// 			const trans = view.state.update({
-				// 				changes: info.lines.map(line => {
-				// 					return { from: line.from, to: line.to, insert: fileLink }
-				// 				})
-				// 			})
-				// 			view.dispatch(trans);
-				// 		};
-				// 		replaceTextWithLink();
-				// 		insertLinkOnDrawing(fileLink, file, plugin);
-
-				// 	}
-				// }
 			});
 
 			return dragSymbol;
