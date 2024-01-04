@@ -179,6 +179,9 @@ export const dragExtension = (plugin: CardNote) => {
 				console.log("dragging", e);
 				const pos = offset(e)
 				moveElement(ghost, pos.x, pos?.y);
+				if (!ghost.isShown()) {
+					ghost.show();
+				}
 			}
 			e.preventDefault();
 		};
@@ -187,10 +190,10 @@ export const dragExtension = (plugin: CardNote) => {
 		dragSymbol.addEventListener("dragstart", (e) => {
 			const iframe = findIframe(e.targetNode?.parentElement);
 			console.log("detect Iframe?", iframe);
-			offset = iframe
-				? computeIframeOffect(iframe)
-				: getPosition;
-			//offset = getPosition;
+			// offset = iframe
+			// 	? computeIframeOffect(iframe)
+			// 	: getPosition;
+			offset = getPosition;
 
 			const getSelection = (): { content: string, lines: Selection[] } => {
 				const selectLines = view.state.selection.ranges.map(range => ({
@@ -220,6 +223,7 @@ export const dragExtension = (plugin: CardNote) => {
 					const div = document.createElement("div");
 					//set position to absolute and append it to body to show custom element when dragging
 					div.style.position = "absolute";
+					div.hide();
 					div.setCssStyles({
 						padding: "5px 25px",
 						borderStyle: "solid",
