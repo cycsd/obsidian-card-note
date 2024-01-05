@@ -3,15 +3,20 @@ import { App, Modal, Setting } from "obsidian";
 type Cancel = undefined;
 export class FileNameCheckModal extends Modal {
     result:string;
-    onSubmit: (result: string | Cancel) => void;
-    constructor(app: App, onSubmit: (result: string | Cancel) => void, defaultValue="") {
+	onSubmit: (result: string | Cancel) => void;
+	errorMessage?: string
+	constructor(
+		app: App,
+		onSubmit: (result: string | Cancel) => void, defaultValue = "",
+		errorMessage?: string,
+	) {
         super(app);
         this.result = defaultValue
-        this.onSubmit = onSubmit;
+		this.onSubmit = onSubmit;
+		this.errorMessage = errorMessage;
     }
     onOpen(): void {
-        const { contentEl } = this;
-        //contentEl.createEl("h1", { text: "File Name" });
+		const { contentEl } = this;
         new Setting(contentEl)
             .setName("File Name")
             .addText(text => {
@@ -35,7 +40,11 @@ export class FileNameCheckModal extends Modal {
 						this.onSubmit(undefined);
                         this.close();
                     })
-            })
+			})
+		if (this.errorMessage) {
+			new Setting(contentEl)
+				.setDesc(this.errorMessage!)
+		}
     }
     onClose(): void {
         const { contentEl } = this;

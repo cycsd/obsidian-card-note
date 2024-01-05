@@ -1,11 +1,10 @@
 {
-	"id": "card-note-plugin",
+	"id": "card-note",
 	"name": "CardNote",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
+	"description": "Help you quickly extract your thought in the Canvas and Excalidraw",
 	"author": "cycsd",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"authorUrl": "https://github.com/cycsd/obsidian-card-note",
 	"isDesktopOnly": false
 }

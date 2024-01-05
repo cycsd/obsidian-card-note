@@ -1,7 +1,7 @@
 import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet } from "@codemirror/state";
-import { Break, checkFileName, createDefaultFileName, createFullPath, FileInfo, isBreak, MarkdownFileExtension, throttle } from "utility";
+import { Break, checkFileName, createDefaultFileName, createFullPath, FileInfo, isBreak, isHeading, LineBreak as LINEBREAK, MarkdownFileExtension, throttle } from "utility";
 import { MarkdownRenderer, TFile } from "obsidian";
 import { FileNameCheckModal } from "src/ui";
 import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
@@ -11,10 +11,15 @@ type Selection = {
 	from: number,
 	to: number,
 }
+type ExtractInfo = {
+	title?: string,
+	content: string,
+	lines: Selection[]
+};
 
-async function getUerRename(plugin: CardNote, defaultFile: FileInfo) {
+async function uerRename(plugin: CardNote, defaultFile: FileInfo) {
 	const folderPath = plugin.settings.defaultFolder;
-	const getUserRename = (defaultValue?: string) => {
+	const getUserRename = (defaultValue?: string, errorMessage?: string) => {
 		return new Promise<FileInfo | Break>(resolve => {
 			new FileNameCheckModal(plugin.app, value => {
 				resolve(isBreak(value)
@@ -24,7 +29,7 @@ async function getUerRename(plugin: CardNote, defaultFile: FileInfo) {
 						fileName: value,
 						extension: MarkdownFileExtension,
 					});
-			}, defaultValue)
+			}, defaultValue, errorMessage)
 				.open();
 		})
 	}
@@ -35,8 +40,8 @@ async function getUerRename(plugin: CardNote, defaultFile: FileInfo) {
 		update(prev) {
 			return prev;
 		},
-		provide(arg, file) {
-			return getUserRename(arg)
+		provide(arg, file, error) {
+			return getUserRename(arg, error);
 		}
 	})
 	return userCheckPath;
@@ -53,17 +58,23 @@ export const dragExtension = (plugin: CardNote) => {
 		const container = plugin.app.workspace.containerEl;
 		let ghost: HTMLElement;
 		let dragoverBackground: HTMLElement;
-		let info: { content: string, lines: Selection[] };
+		let info: ExtractInfo;
 
 		const handleDrop = async (e: DragEvent) => {
 			const createFileAndDraw = async (draw: (file: TFile, link: string) => void) => {
 				const pluginApp = plugin.app;
-				const defaultFile = await createDefaultFileName(plugin, info.content);
-				const userCheckPath = await getUerRename(plugin, defaultFile);
+				const title = info.title ?? info.content.split(LINEBREAK, 1)[0].substring(0, 20).trim();
+				const defaultFile: FileInfo = title.length !== 0
+					? {
+						fileName: title,
+						folderPath: plugin.settings.defaultFolder,
+						extension: MarkdownFileExtension,
+					}
+					: await createDefaultFileName(plugin, info.content);
+				const userCheckPath = await uerRename(plugin, defaultFile);
 				if (!isBreak(userCheckPath)) {
 					//replace editor's select line or text with link
 					const filePath = createFullPath(userCheckPath);
-					console.log(filePath);
 					const file = await pluginApp.vault.create(filePath, info.content);
 					const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
 						file,
@@ -108,7 +119,7 @@ export const dragExtension = (plugin: CardNote) => {
 		};
 		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
-			const getSelection = (): { content: string, lines: Selection[] } => {
+			const getSelection = (): ExtractInfo => {
 				const selectLines = view.state.selection.ranges.map(range => ({
 					from: range.from,
 					to: range.to,
@@ -119,12 +130,39 @@ export const dragExtension = (plugin: CardNote) => {
 				return { content: select, lines: selectLines }
 			}
 
-			const getLineString = () => {
+			const getLineString = (): ExtractInfo => {
 				const statefield = view.state.field(dragSymbolSet);
 				const start = statefield.iter().from;
-				const lineBlock = view.lineBlockAt(start);
-				const lineString = view.state.sliceDoc(lineBlock.from, lineBlock.to)
-				return { content: lineString, lines: [{ from: start, to: lineBlock.to }] }
+				const doc = view.state.doc;
+				const line = view.state.doc.lineAt(start);
+				const lineString = line.text;
+				const extract = isHeading(lineString);
+				if (extract.type === 'text') {
+					return { content: lineString, lines: [{ from: start, to: line.to }] }
+				}
+				else {
+					const max = extract.headingSymbol.length;
+					const superHead = new RegExp(`^#{1,${max}}\\s`);
+					let iterLine = doc
+						.iterLines(line.number)//0 => empty
+						.next()//1 => current
+						.next()//2 => next;
+					let endLinenumber = line.number;
+					while (!iterLine.done) {
+						if (superHead.test(iterLine.value)) {
+							break;
+						}
+						else {
+							iterLine = iterLine.next();
+							endLinenumber += 1;
+						}
+					}
+					const end = doc.line(endLinenumber);
+					const content = doc.sliceString(start, end.to);
+					console.log("end line", end);
+					console.log("content", content);
+					return { title: extract.title, content: content, lines: [{ from: start, to: end.to }] }
+				}
 			}
 			const defaultSelect = getSelection();
 			info = defaultSelect.content.length !== 0 ? defaultSelect : getLineString();

@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "card-note-plugin",
+	"version": "0.1.0",
+	"description": "Help you quickly extract your thought in the Canvas and Excalidraw",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

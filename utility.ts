@@ -3,7 +3,7 @@ import { TFile, TFolder, normalizePath } from "obsidian";
 
 export function throttle<T extends unknown[], V>(
 	cb: (...args: [...T]) => V,
-	secondTimeout =0,
+	secondTimeout = 0,
 	resetTimer?: boolean
 ) {
 	let timer = false;
@@ -13,7 +13,7 @@ export function throttle<T extends unknown[], V>(
 			timer = true;
 			setTimeout(() => {
 				timer = false;
-			}, 1000* secondTimeout);
+			}, 1000 * secondTimeout);
 			result = cb(...args);
 		}
 		return result;
@@ -32,7 +32,7 @@ export type FileInfo = {
 export type NameFile<T> = {
 	create: () => T,
 	update: (prev: T) => T,
-	provide: (arg: T, unapprove: TFile | TFolder | undefined) => Promise<FileInfo | Break>,
+	provide: (arg: T, unapprove: TFile | TFolder | undefined, errorMessage?: string) => Promise<FileInfo | Break>,
 }
 export function isBreak(name: any): name is Break {
 	return name === undefined;
@@ -46,25 +46,30 @@ export function createFullPath(file: FileInfo) {
 export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>): Promise<FileInfo | Break> {
 	let state = config.create();
 	let folder;
+	let errorMessage: string | undefined;
 	while (true) {
-		const file = await config.provide(state, folder);
-		if (isBreak(file)) {
-			return file;
-		}
-		const filePathUncheck = createFullPath(file)
-		const normalFilePath = normalizePath(filePathUncheck);
 		try {
-			if (filePathUncheck.length === 0) {
-				throw new Error("File Name can not be empty");
+			const file = await config.provide(state, folder, errorMessage);
+			if (isBreak(file)) {
+				return file;
 			}
-			if (filePathUncheck === "" || await plugin.app.vault.adapter.exists(normalFilePath)) {
+			if (file.fileName.length === 0) {
+				throw new Error("File Name can not be empty!");
+			}
+			if (file.fileName.endsWith(" ")) {
+				throw new Error("File Name can not end with white space!");
+			}
+			const filePathUncheck = createFullPath(file)
+			const normalFilePath = normalizePath(filePathUncheck);
+			plugin.app.vault.checkPath(normalFilePath)
+			if (await plugin.app.vault.adapter.exists(normalFilePath)) {
 				throw new Error("File Exist!");
 			}
-			plugin.app.vault.checkPath(normalFilePath)
 			return file;
 
 		} catch (error) {
 			state = config.update(state);
+			errorMessage = error.message;
 			continue;
 		}
 
@@ -72,7 +77,6 @@ export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>): P
 }
 export async function createDefaultFileName(plugin: CardNote, content: string) {
 	const folderPath = plugin.settings.defaultFolder;
-	const fileName = content.split(LineBreak, 1)[0].substring(0, 20);
 	const createRandomFileName = () => {
 		return checkFileName(plugin, {
 			create: () => {
@@ -86,11 +90,28 @@ export async function createDefaultFileName(plugin: CardNote, content: string) {
 			}),
 		})
 	}
-	return fileName.length !== 0
-		? {
-			folderPath,
-			fileName,
-			extension: MarkdownFileExtension,
+	return await createRandomFileName() as FileInfo;
+}
+
+export const HEADING = /^(?<header>#{1,6}\s)(?<title>.*)/;
+export type Heading = {
+	type: 'heading'
+	headingSymbol: string,
+	title: string,
+}
+export type Text = {
+	type: 'text'
+	title: string
+}
+export type Content = Heading | Text;
+export function isHeading(content: string): Content {
+	const match = HEADING.exec(content);
+	if (match?.groups) {
+		return {
+			type: 'heading',
+			headingSymbol: match.groups.header.trim(),
+			title: match.groups.title,
 		}
-		: await createRandomFileName() as FileInfo;
+	}
+	return { type: 'text', title: content }
 }

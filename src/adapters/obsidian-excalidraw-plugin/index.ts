@@ -53,6 +53,7 @@ export async function insertEmbeddableOnDrawing(event: DragEvent, view: Excalidr
 		// console.log("can get position?", position);
 		// console.log("add embeddabel", ea.addEmbeddable);	
 	} catch (error) {
+		console.log(error);
 		// new WarningPrompt(
 // 	app,
 // 	"⚠ ExcaliBrain Disabled: Excalidraw Plugin not found",
