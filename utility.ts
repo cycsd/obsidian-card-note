@@ -99,18 +99,37 @@ export type Heading = {
 	headingSymbol: string,
 	title: string,
 }
+export const LIST = /^(?<list>[-*]\s|(?:\d.)+\s)(?<text>.*)/
+export type List = {
+	type: 'list',
+	listSymbol: string,
+	title: string,
+}
 export type Text = {
 	type: 'text'
 	title: string
 }
-export type Content = Heading | Text;
-export function isHeading(content: string): Content {
-	const match = HEADING.exec(content);
-	if (match?.groups) {
+export type TextWithSymbol = {
+	type: 'heading' | 'list',
+	symbol: string,
+	title: string,
+}
+export type MarkdownSyntax = TextWithSymbol | Text;
+export function markdownParser(content: string): MarkdownSyntax {
+	const headingMatch = HEADING.exec(content);
+	if (headingMatch?.groups) {
 		return {
 			type: 'heading',
-			headingSymbol: match.groups.header.trim(),
-			title: match.groups.title,
+			symbol: headingMatch.groups.header.trim(),
+			title: headingMatch.groups.title,
+		}
+	}
+	const listMatch = LIST.exec(content);
+	if (listMatch?.groups) {
+		return {
+			type: 'list',
+			symbol: listMatch.groups.list.trim(),
+			title: listMatch.groups.text,
 		}
 	}
 	return { type: 'text', title: content }

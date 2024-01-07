@@ -1,7 +1,8 @@
 import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet } from "@codemirror/state";
-import { Break, checkFileName, createDefaultFileName, createFullPath, FileInfo, isBreak, isHeading, LineBreak as LINEBREAK, MarkdownFileExtension, throttle } from "utility";
+import { foldable } from "@codemirror/language"
+import { Break, checkFileName, createDefaultFileName, createFullPath, FileInfo, isBreak, markdownParser, LineBreak as LINEBREAK, MarkdownFileExtension, throttle } from "utility";
 import { MarkdownRenderer, TFile } from "obsidian";
 import { FileNameCheckModal } from "src/ui";
 import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
@@ -135,34 +136,21 @@ export const dragExtension = (plugin: CardNote) => {
 				const start = statefield.iter().from;
 				const doc = view.state.doc;
 				const line = view.state.doc.lineAt(start);
-				const lineString = line.text;
-				const extract = isHeading(lineString);
-				if (extract.type === 'text') {
-					return { content: lineString, lines: [{ from: start, to: line.to }] }
-				}
-				else {
-					const max = extract.headingSymbol.length;
-					const superHead = new RegExp(`^#{1,${max}}\\s`);
-					let iterLine = doc
-						.iterLines(line.number)//0 => empty
-						.next()//1 => current
-						.next()//2 => next;
-					let endLinenumber = line.number;
-					while (!iterLine.done) {
-						if (superHead.test(iterLine.value)) {
-							break;
-						}
-						else {
-							iterLine = iterLine.next();
-							endLinenumber += 1;
-						}
+				const foldableRange = foldable(view.state, line.from, line.to);
+				const allRange: ExtractInfo = foldableRange
+					? {
+						content: doc.sliceString(line.from, foldableRange.to),
+						lines: [{
+							from: line.from,
+							to: foldableRange.to
+						}]
 					}
-					const end = doc.line(endLinenumber);
-					const content = doc.sliceString(start, end.to);
-					console.log("end line", end);
-					console.log("content", content);
-					return { title: extract.title, content: content, lines: [{ from: start, to: end.to }] }
-				}
+					: {
+						content: line.text,
+						lines: [{ from: line.from, to: line.to }]
+					}
+				const extract = markdownParser(line.text);
+				return extract.type === 'text' ? allRange : { title: extract.title, ...allRange };
 			}
 			const defaultSelect = getSelection();
 			info = defaultSelect.content.length !== 0 ? defaultSelect : getLineString();
