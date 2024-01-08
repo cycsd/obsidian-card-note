@@ -99,7 +99,7 @@ export type Heading = {
 	headingSymbol: string,
 	title: string,
 }
-export const LIST = /^(?<list>[-*]\s|(?:\d.)+\s)(?<text>.*)/
+export const LIST = /(?<list>[-*]\s|(?:\d.)+\s)(?<text>.*)/
 export type List = {
 	type: 'list',
 	listSymbol: string,

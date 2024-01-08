@@ -3,7 +3,7 @@
 	"name": "CardNote",
 	"version": "0.2.0",
 	"minAppVersion": "0.15.0",
-	"description": "Help you quickly extract your thought in the Canvas and Excalidraw",
+	"description": "Help you quickly extract your thoughts in the Canvas and Excalidraw",
 	"author": "cycsd",
 	"authorUrl": "https://github.com/cycsd/obsidian-card-note",
 	"isDesktopOnly": false

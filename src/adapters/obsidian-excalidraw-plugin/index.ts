@@ -47,11 +47,6 @@ export async function insertEmbeddableOnDrawing(event: DragEvent, view: Excalidr
 		// 	clientY: height / 2 + offsetTop,
 		// }, appState);
 		//insertEmbeddableToView()
-		// console.log("can get EA?", ea);
-		// console.log("can get EB?", eb);
-		// console.log("can get view?", eaView);
-		// console.log("can get position?", position);
-		// console.log("add embeddabel", ea.addEmbeddable);	
 	} catch (error) {
 		console.log(error);
 		// new WarningPrompt(
