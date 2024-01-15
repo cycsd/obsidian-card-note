@@ -9,11 +9,13 @@ import { dragExtension } from "dragUpdate";
 // Remember to rename these classes and interfaces!
 interface CardNoteSettings {
 	dragSymbol: string,
+	dragSymbolSize?: number,
 	defaultFolder: string,
 }
 
 const DEFAULT_SETTINGS: CardNoteSettings = {
 	dragSymbol: "💔",
+	dragSymbolSize: 18,
 	defaultFolder: "",
 };
 export default class CardNote extends Plugin {
@@ -63,7 +65,7 @@ class CardNoteTab extends PluginSettingTab {
 		containerEl.empty();
 		new Setting(containerEl)
 			.setName("Drag Symbol")
-			.setDesc("you can set your prefer drag symbol here")
+			.setDesc("You can set your prefer drag symbol here")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter your drag symbol here")
@@ -72,7 +74,8 @@ class CardNoteTab extends PluginSettingTab {
 						this.plugin.settings.dragSymbol = value;
 						await this.plugin.saveSettings();
 					})
-			);
+		);
+		this.addSizeSetting();
 		new Setting(containerEl)
 			.setName("Default Folder")
 			.setDesc("Default loction for new note. if empty, new note will be created in the Vault root.")
@@ -84,6 +87,26 @@ class CardNoteTab extends PluginSettingTab {
 						this.plugin.settings.defaultFolder = value;
 						await this.plugin.saveSettings();
 					})
+			);
+	}
+	addSizeSetting() {
+		const desc = (value?: number) => {
+			return `Change your symbol size.Current size is ${value ?? this.plugin.settings.dragSymbolSize}.(min=1 max=100)`;
+		}
+		const sizeSetting = new Setting(this.containerEl)
+			.setName("Symbol Size (px)")
+			.setDesc(desc())
+			.addSlider(slider => {
+				slider
+					.setLimits(1, 100, 1)
+					.setValue(this.plugin.settings.dragSymbolSize ?? 18)
+					.onChange(async (value) => {
+						sizeSetting.setDesc(desc(value));
+						this.plugin.settings.dragSymbolSize = value;
+						await this.plugin.saveSettings();
+					})
+					.setDynamicTooltip()
+			}
 			);
 	}
 }

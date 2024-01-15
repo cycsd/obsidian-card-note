@@ -104,7 +104,7 @@ export const dragExtension = (plugin: CardNote) => {
 			} else if (isObsidianCanvasView(drawView)) {
 				const pos = drawView.canvas.posFromEvt(e);
 				createFileAndDraw((file, fileLink) => {
-					drawView.canvas.createFileNode({ file, pos });
+					drawView.canvas.createFileNode({ file, pos, save: true });
 				})
 			}
 		};
@@ -204,11 +204,11 @@ export const dragExtension = (plugin: CardNote) => {
 			dragSymbol.draggable = true;
 			const symbol = dragSymbol.createSpan();
 			symbol.innerText = plugin.settings.dragSymbol;
-			symbol.style.fontSize = "18px";
+			symbol.style.fontSize = `${plugin.settings.dragSymbolSize}px`;
 
 			const { reset } = addDragStartEvent(dragSymbol, view);
 
-			dragSymbol.addEventListener("dragend", (e) => {
+			dragSymbol.addEventListener("dragend", () => {
 				reset();
 			});
 
