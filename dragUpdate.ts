@@ -163,11 +163,24 @@ export const dragExtension = (plugin: MyPlugin) => {
 			let ghost: HTMLElement;
 			div.style.width = "10vw";
 			div.style.height = "10vh";
+			//可偵測到
+			//不過在一開始打開obsidian的時候(會顯示gutter)
+			//及在canvas or excalidraw 一開始點選的時候(雖然也不會顯示gutter)
+			//會無法偵測到activeEditor
+			//且toDOM這個動作以目前的寫法似乎只會在
+			//editor獲得statefield extension的時候做一次
+			//接下來range改變都不會再進行toDom動作(原因需要再理解)
+			console.log(
+				"gutter detect active editor in toDom",
+				plugin.app.workspace.activeEditor
+			);
+			const ae = plugin.app.workspace.activeEditor;
 			div.addEventListener("click", this.clickHandler);
 			div.addEventListener("dragend", (e) => {
 				document.removeEventListener("drop", handleDropToCreateFile);
 			});
 			div.addEventListener("dragstart", (e) => {
+				console.log("get file in to Dom and read in drag start", ae?.file);
 				console.log("widget to Dom can access view", view);
 				document.addEventListener("drop", handleDropToCreateFile);
 				//點擊gutter後會取不到activeEditor
@@ -294,8 +307,15 @@ export const dragExtension = (plugin: MyPlugin) => {
 		toDOM(view: EditorView): HTMLElement {
 			const dragContent = document.createElement("span");
 			dragContent.draggable = true;
-			dragContent.innerText = "💔";
+			dragContent.innerText = ":::";
+			// console.log(
+			// 	"line widget detect active editor in toDom",
+			// 	plugin.app.workspace.activeEditor
+			// );
 			dragContent.addEventListener("click", e => {
+				//相對於gutter
+				//可在canvas中偵測到activeEditor
+				console.log("click", e);
 				const editor = plugin.app.workspace.activeEditor;
 				console.log("can detect active editor in line?", editor);
 			})
