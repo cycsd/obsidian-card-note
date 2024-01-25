@@ -77,11 +77,7 @@ export const dragExtension = (plugin: CardNote) => {
 					//replace editor's select line or text with link
 					const filePath = createFullPath(userCheckPath);
 					const file = await pluginApp.vault.create(filePath, info.content);
-					const fileLink = `[[${pluginApp.metadataCache.fileToLinktext(
-						file,
-						file.path,
-						file.extension === "md",
-					)}]]`;
+					const fileLink = plugin.createLink(file);
 					const replaceTextWithLink = () => {
 						const trans = view.state.update({
 							changes: info.lines.map(line => {

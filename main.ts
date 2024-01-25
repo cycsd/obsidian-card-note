@@ -3,6 +3,7 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TFile,
 } from "obsidian";
 import { dragExtension } from "dragUpdate";
 
@@ -40,16 +41,25 @@ export default class CardNote extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-	addCommandToObsidian() {
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: "open-sample-modal-simple",
-			name: "Open sample modal (simple)",
-			callback: () => {
-			},
-		});
+	createLink(file: TFile, subpath?: string, displayText?: string) {
+		const fileLinkPath = this.app.metadataCache.fileToLinktext(
+			file,
+			file.path,
+			file.extension === "md"
+		);
+		const sub = subpath ? `#${subpath}` : '';
+		const link = `${fileLinkPath}${sub}`
+		const useMarkdownLink = this.app.vault.getConfig("useMarkdownLinks");
+		const markdownLink = () => {
+			const display = displayText ?? link;
+			return `[${display}](${link})`;
+		}
+		const wikiLink = () => {
+			const display = displayText ? `|${displayText}` : '';
+			return `[[${link}${display}]]`;
+		}
+		return useMarkdownLink ? markdownLink() : wikiLink();
 	}
-
 }
 
 class CardNoteTab extends PluginSettingTab {
@@ -87,7 +97,8 @@ class CardNoteTab extends PluginSettingTab {
 						this.plugin.settings.defaultFolder = value;
 						await this.plugin.saveSettings();
 					})
-			);
+		);
+
 	}
 	addSizeSetting() {
 		const desc = (value?: number) => {
@@ -109,4 +120,11 @@ class CardNoteTab extends PluginSettingTab {
 			}
 			);
 	}
+	// addInternalLinkSetting() {
+	// 	const sp = document.createSpan();
+	// 	sp.appendText("Default link is Wikilink, open this setting will ch").
+	// 	new Setting(this.containerEl)
+	// 		.setName("Link Style")
+	// 		.setDesc(document.createDocumentFragment())
+	// }
 }

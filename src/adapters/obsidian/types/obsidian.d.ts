@@ -30,7 +30,8 @@ declare module "obsidian" {
     };
   }
   interface Vault {
-    checkPath(path: string): null
+	checkPath(path: string): null;
+	getConfig(option: "useMarkdownLinks"): boolean;
   }
 
   interface FileManager {
