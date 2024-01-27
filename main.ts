@@ -4,8 +4,11 @@ import {
 	PluginSettingTab,
 	Setting,
 	TFile,
+	TextFileView,
 } from "obsidian";
 import { dragExtension } from "dragUpdate";
+import { isObsidianCanvasView } from "src/adapters/obsidian";
+
 
 // Remember to rename these classes and interfaces!
 interface CardNoteSettings {
@@ -59,6 +62,23 @@ export default class CardNote extends Plugin {
 			return `[[${link}${display}]]`;
 		}
 		return useMarkdownLink ? markdownLink() : wikiLink();
+	}
+	getActiveEditorFile() {
+		const activeEditor = this.app.workspace.activeEditor;
+		const canvasView = this.app.workspace.getActiveViewOfType(TextFileView);
+		console.log("detect editor in fn", activeEditor);
+		console.log("detect view", canvasView);
+
+		if (canvasView) {
+			if (isObsidianCanvasView(canvasView)) {
+				const [selectNode] = canvasView.canvas.selection;
+				const file = selectNode?.type === 'file' ? selectNode.file : null;
+				console.log("canvas file node:", file);
+				return selectNode?.type === 'file' ? selectNode.file : null;
+			}
+
+		}
+		return activeEditor
 	}
 }
 

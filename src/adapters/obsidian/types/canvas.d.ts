@@ -1,10 +1,12 @@
 
 import { TFile, TextFileView } from "obsidian";
+import { AllCanvasNodeData } from "obsidian/canvas";
 
-interface CanvasView extends TextFileView {
-	canvas: ObsidianCanvas,
+
+export interface CanvasView extends TextFileView {
+	canvas: ObsidianCanvas;
 }
-interface ObsidianCanvas {
+export interface ObsidianCanvas {
 	posFromEvt(event: MouseEvent): { x: number, y: number },
 	createFileNode(config: {
 		file: TFile,
@@ -15,5 +17,7 @@ interface ObsidianCanvas {
 		save?: boolean,
 		focus?: boolean,
 	}): any,
-}
+		selection: Set<AllCanvasNodeData>
+	}
+
 
