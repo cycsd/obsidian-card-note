@@ -40,7 +40,18 @@ declare module "obsidian" {
       callback: (FrontMatterCache: any) => void,
       option?: DataWriteOptions
     ) => Promise<void>;
-    createNewMarkdownFile: (folder: TFolder, name: string) => Promise<TFile>;
+	createNewMarkdownFile: (folder: TFolder, name: string) => Promise<TFile>;
+	/**
+	 * 
+	 * @param fn 
+	 * @returns 
+	 */
+	iterateAllRefs: (fn: (fileName: string, info: {
+		displayText: string,//text display in prev mode
+		link: string,//link (fileName([#^]blockId))
+		original: string,//text in editor [[link|display]]
+		position: Pos,
+	}) => void) => void
   }
 
   interface MetadataCache {
@@ -158,4 +169,7 @@ declare module "obsidian" {
   interface EditorSuggest<T> {
     suggestEl: HTMLElement;
   }
+	interface SectionCache extends CacheItem {
+		type: 'heading' | 'list' | 'paragraph' | 'blockquote' | string;
+	}
 }

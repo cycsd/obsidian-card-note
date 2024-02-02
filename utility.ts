@@ -29,10 +29,11 @@ export type FileInfo = {
 	folderPath: string,
 	extension: string,
 }
-export type NameFile<T> = {
+export type CheckConfig<T, R = T, R2 = R> = {
 	create: () => T,
 	update: (prev: T) => T,
-	provide: (arg: T, unapprove: TFile | TFolder | undefined, errorMessage?: string) => Promise<FileInfo | Break>,
+	provide: (arg: T, unapprove: R | undefined, errorMessage?: string) => Promise<R | Break>,
+	check: (value: R) => Promise<R2 | Error>,
 }
 export function isBreak(name: any): name is Break {
 	return name === undefined;
@@ -43,32 +44,68 @@ export function createFullPath(file: FileInfo) {
 		? fileName
 		: `${file.folderPath}/${fileName}`;
 }
-export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>): Promise<FileInfo | Break> {
-	let state = config.create();
-	let folder;
+export async function checkFileName1(plugin: CardNote, file: FileInfo) {
+	if (isBreak(file)) {
+		return file;
+	}
+	if (file.fileName.length === 0) {
+		throw new Error("File Name can not be empty!");
+	}
+	if (file.fileName.endsWith(" ")) {
+		throw new Error("File Name can not end with white space!");
+	}
+	const filePathUncheck = createFullPath(file)
+	const normalFilePath = normalizePath(filePathUncheck);
+	plugin.app.vault.checkPath(normalFilePath)
+	if (await plugin.app.vault.adapter.exists(normalFilePath)) {
+		throw new Error("File Exist!");
+	}
+	return file;
+}
+export async function ReCheck<T, R = T, R2 = R>(config: CheckConfig<T, R, R2>): Promise<R2 | Break> {
+	// let state = config.create();
+	// let folder;
 	let errorMessage: string | undefined;
+	let args = config.create();
+	let result: Awaited<R> | undefined;
+	// eslint-disable-next-line no-constant-condition
 	while (true) {
 		try {
-			const file = await config.provide(state, folder, errorMessage);
-			if (isBreak(file)) {
-				return file;
+			result = await config.provide(args, result, errorMessage);
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			if (isBreak(result)) {
+				return result;
 			}
-			if (file.fileName.length === 0) {
-				throw new Error("File Name can not be empty!");
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			const validResult = await config.check(result!);
+			if (validResult instanceof Error) {
+				throw validResult;
 			}
-			if (file.fileName.endsWith(" ")) {
-				throw new Error("File Name can not end with white space!");
+			else {
+				return validResult;
 			}
-			const filePathUncheck = createFullPath(file)
-			const normalFilePath = normalizePath(filePathUncheck);
-			plugin.app.vault.checkPath(normalFilePath)
-			if (await plugin.app.vault.adapter.exists(normalFilePath)) {
-				throw new Error("File Exist!");
-			}
-			return file;
+// const file = await config.provide(state, folder, errorMessage);
+// if (isBreak(file)) {
+// 	return file;
+// }
+// const e = config.check(file);
+// if (e instanceof Error)
+// if (file.fileName.length === 0) {
+// 	throw new Error("File Name can not be empty!");
+// }
+// if (file.fileName.endsWith(" ")) {
+// 	throw new Error("File Name can not end with white space!");
+// }
+// const filePathUncheck = createFullPath(file)
+// const normalFilePath = normalizePath(filePathUncheck);
+// plugin.app.vault.checkPath(normalFilePath)
+// if (await plugin.app.vault.adapter.exists(normalFilePath)) {
+// 	throw new Error("File Exist!");
+// }
+// return file;
 
 		} catch (error) {
-			state = config.update(state);
+			args = config.update(args);
 			errorMessage = error.message;
 			continue;
 		}
@@ -78,7 +115,7 @@ export async function checkFileName<T>(plugin: CardNote, config: NameFile<T>): P
 export async function createDefaultFileName(plugin: CardNote, content: string) {
 	const folderPath = plugin.settings.defaultFolder;
 	const createRandomFileName = () => {
-		return checkFileName(plugin, {
+		return ReCheck({
 			create: () => {
 				return { name: "NewNote", count: 0 };
 			},
@@ -88,6 +125,7 @@ export async function createDefaultFileName(plugin: CardNote, content: string) {
 				fileName: `${arg.name}${arg.count}`,
 				extension: MarkdownFileExtension,
 			}),
+			check: plugin.checkFileName
 		})
 	}
 	return await createRandomFileName() as FileInfo;

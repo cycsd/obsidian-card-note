@@ -5,9 +5,21 @@ import {
 	Setting,
 	TFile,
 	TextFileView,
+	normalizePath,
 } from "obsidian";
 import { dragExtension } from "dragUpdate";
 import { isObsidianCanvasView } from "src/adapters/obsidian";
+import { FileInfo, createFullPath, isBreak } from "utility";
+
+
+type ChangeInfo = {
+	change: string,//new link text in editor(sourcePath)
+	reference: string,//link info,
+	sourcePath: string,//filepath 這個link存在於哪個檔案內
+}
+type Change = {
+	data: Record<string, ChangeInfo[]>;
+}
 
 
 // Remember to rename these classes and interfaces!
@@ -65,21 +77,54 @@ export default class CardNote extends Plugin {
 	}
 	getActiveEditorFile() {
 		const activeEditor = this.app.workspace.activeEditor;
-		const canvasView = this.app.workspace.getActiveViewOfType(TextFileView);
+		const view = this.app.workspace.getActiveViewOfType(TextFileView);
 		console.log("detect editor in fn", activeEditor);
-		console.log("detect view", canvasView);
+		console.log("detect view", view);
 
-		if (canvasView) {
-			if (isObsidianCanvasView(canvasView)) {
-				const [selectNode] = canvasView.canvas.selection;
-				const file = selectNode?.type === 'file' ? selectNode.file : null;
-				console.log("canvas file node:", file);
-				return selectNode?.type === 'file' ? selectNode.file : null;
+		if (view) {
+			if (isObsidianCanvasView(view)) {
+				const [selectNode] = view.canvas.selection;
+				// property type='file'|'text'|'group'... is missing, but in the unknownData property
+				// not correspond to typescript api
+				const file = selectNode?.file as TFile | undefined;
+				return file
 			}
 
 		}
-		return activeEditor
+		return activeEditor?.file
 	}
+
+	async checkFileName(file: FileInfo) {
+		if (file.fileName.length === 0) {
+			return new Error("File Name can not be empty!");
+		}
+		if (file.fileName.endsWith(" ")) {
+			return new Error("File Name can not end with white space!");
+		}
+		const filePathUncheck = createFullPath(file)
+		const normalFilePath = normalizePath(filePathUncheck);
+		this.app.vault.checkPath(normalFilePath)
+		if (await this.app.vault.adapter.exists(normalFilePath)) {
+			return new Error("File Exist!");
+		}
+		return file;
+	}
+	// updateFileLink() {
+	// 	const ap = this.app;
+	// 	const cache = ap.metadataCache;
+	// 	this.app.metadataCache.getFirstLinkpathDest("link path: fileName in link", "file name with extension ex:md")//equal to sourcefile;
+	// 	this.app.fileManager.iterateAllRefs((fileName, link) => {
+	// 		//sourcePath = 來源檔名
+	// 		//linkPath = link target (file Name)
+	// 		//getfirstlinkpathdest: 得到來源檔名中此link path連結到哪個file
+	// 		cache.getFirstLinkpathDest(, fileName) === sourcfile
+	// 	})
+	// 	//get change
+	// 	//似乎不更新自己
+	// 	ap.fileManager.updateInternalLinks
+	// 	ap.canvas.renamesubpath
+
+	// }
 }
 
 class CardNoteTab extends PluginSettingTab {
