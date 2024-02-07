@@ -1,5 +1,5 @@
 import CardNote from "main";
-import { TFile, TFolder, normalizePath } from "obsidian";
+import { Changes, ChangeInfo, normalizePath, LinkCache } from "obsidian";
 
 export function throttle<T extends unknown[], V>(
 	cb: (...args: [...T]) => V,
@@ -171,4 +171,64 @@ export function markdownParser(content: string): MarkdownSyntax {
 		}
 	}
 	return { type: 'text', title: content }
+}
+export type LinkText = {
+	path: string,
+	subpath: string,
+	link: LinkCache,
+}
+const WIKILINK = /^(?<left>!?\[\[)(?<link>.*?)(?<diplay>\|(?<diplayText>.*))?(?<right>]])$/;
+export function UpdateLinkText(sourcePath: string, text: LinkText, newPath: (link: LinkText) => string): ChangeInfo {
+	const wikimatch = WIKILINK.exec(text.link.original);
+	let newText = "";
+	if (wikimatch) {
+		const np = newPath(text);
+		const display = wikimatch.groups?.diplay ?? "";
+		newText = `${wikimatch.groups?.left}${np}${display}${wikimatch.groups?.right}`;
+	}
+	return {
+		change: newText,
+		reference: text.link,
+		sourcePath,
+	}
+}
+export function LinkToChanges(linkMap: Map<string, LinkText[]>, newPath: (link: LinkText) => string): Changes {
+	const change: Changes = {
+		data: {},
+		keys: () => Object.keys(change.data),
+		add: (key, value) => {
+			const values = change.data[key];
+			if (values && !values.contains(value)) {
+				if (!values.contains(value)) {
+					values.push(value);
+				}
+			}
+			else {
+				change.data[key] = [value];
+			}
+		},
+		remove: (key, value) => {
+			const values = change.data[key];
+			values?.remove(value);
+		},
+		removeKey: (key) => { delete change.data[key] },
+		get: (key) => change.data[key],
+		clear: (key) => change.removeKey(key),
+		clearAll: () => { change.data = {} },
+		contains: (key, value) => change.data[key]?.contains(value),
+		count: () => {
+			let c = 0;
+			for (const key in change.data) {
+				const len = change.data[key].length;
+				c += len;
+			}
+			return c
+		},
+	}
+	linkMap.forEach((value, key) => {
+		const changeInfo = value.map(text => UpdateLinkText(key, text, newPath));
+		change.data[key] = changeInfo
+	})
+
+	return change
 }

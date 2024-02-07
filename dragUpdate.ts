@@ -3,7 +3,7 @@ import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language"
 import { Break, ReCheck, createDefaultFileName, createFullPath, FileInfo, isBreak, markdownParser, LineBreak as LINEBREAK, MarkdownFileExtension, throttle } from "utility";
-import { CacheItem, HeadingCache, ListItemCache, MarkdownRenderer, SectionCache, TFile } from "obsidian";
+import { BlockCache, CacheItem, HeadingCache, ListItemCache, MarkdownRenderer, SectionCache, TFile } from "obsidian";
 import { CreateFile, FileNameCheckModal, FileNameModelConfig, LinkToReference, UserAction } from "src/ui";
 import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isObsidianCanvasView } from "src/adapters/obsidian";
@@ -91,9 +91,36 @@ function isReferenceBlock(block: Block): block is BaseReferenceBlock {
 			|| block.type === 'linkBlock')
 
 }
+function getSelectOffset(select: FoldableLine | OneLine | SingleSelection) {
+	if (select.type === 'line' && select.section?.type === 'reference') {
+		const pos = select.section.block.cache.position;
+		return {
+			from: pos.start.offset,
+			to: pos.end.offset,
+		}
+	}
+	else {
+		return {
+			from: select.selection.from,
+			to: select.selection.to,
+		}
+	}
+}
 
-function getLine(line: FoldableLine | OneLine) {
-	return line.type === 'foldable' ? line.startLine : line.line;
+function getLinkBlocks(select: UserSelection, file: TFile | null | undefined, plugin: CardNote): [BlockCache[], HeadingCache[]] {
+	if (!file) {
+		return [[], []];
+	}
+	else if (select.type === 'mutiple') {
+		const res = select.selections.map(sel => plugin.findLinkBlocks(file, sel.from, sel.to));
+		const blocks = res.flatMap(r => r[0]);
+		const headings = res.flatMap(r => r[1]);
+		return [blocks, headings];
+	}
+	else {
+		const { from, to } = getSelectOffset(select);
+		return plugin.findLinkBlocks(file, from, to);
+	}
 }
 function selected(select: Selection, section: SectionCache) {
 	return (section.position.start.offset > select.from && section.position.end.offset < select.to)
@@ -285,7 +312,6 @@ export const dragExtension = (plugin: CardNote) => {
 				// 	// 	return undefined
 				// 	// }
 				// }
-
 				const section = info.type === 'line' ? info.section! : getSection(sourceFile, info, plugin);
 				const action = await userAction(plugin, section, info);
 				if (!isBreak(action)) {
@@ -293,20 +319,22 @@ export const dragExtension = (plugin: CardNote) => {
 					//replace editor's select line or text with link
 						const filePath = createFullPath(action.file);
 						const file = await plugin.app.vault.create(filePath, info.content);
-						const fileLink = plugin.createLink(file);
+						const newPath = plugin.createPath(file);
+						const fileLink = plugin.createLinkText(file);
+						if (section.type === 'reference') {
+							//update vault internal link
+							const [blocks, headings] = getLinkBlocks(info, sourceFile, plugin);
+							const subpath = [...blocks.map(block => `#^${block.id}`), ...headings.map(heading => `#${heading}`)];
+							const [selfLinks, outer] = plugin.findLinks(sourceFile!, subpath);
+							plugin.updateInternalLinks(outer, text => {
+								return `${newPath}${text.subpath}`
+							})
+						}
+						//handle self link and replace text with link
 						const replaceTextWithLink = () => {
 							const trans = view.state.update({
 								changes: info.type !== 'mutiple'
-									? info.type === 'line' && info.section && info.section.type === 'reference'
-										? {
-											from: info.section.block.cache.position.start.offset,
-											to: info.section.block.cache.position.end.offset,
-											insert: fileLink,
-										} : {
-											from: info.selection.from,
-											to: info.selection.to,
-											insert: fileLink,
-										}
+									? { ...getSelectOffset(info), insert: fileLink }
 									: info.selections.map(line => {
 										return { from: line.from, to: line.to, insert: fileLink }
 									})

@@ -46,12 +46,15 @@ declare module "obsidian" {
 	 * @param fn 
 	 * @returns 
 	 */
-	iterateAllRefs: (fn: (fileName: string, info: {
-		displayText: string,//text display in prev mode
-		link: string,//link (fileName([#^]blockId))
-		original: string,//text in editor [[link|display]]
-		position: Pos,
-	}) => void) => void
+	  iterateAllRefs: (fn: (fileName: string, cache: LinkCache) => void) => void
+	  updateInternalLinks: (changes: Changes) => void
+	  linkUpdaters: {
+		  canvas: {
+			  getAll: () => Record<string, { caches: Record<string, any>[], embeds: { file?: string, subpath?: string }[] }>
+			  //subpath behind #
+			  renameSubpath: (file: TFile, oldSubpath: string, newSubpath: string) => any
+		  }
+	  }
   }
 
   interface MetadataCache {
@@ -171,5 +174,47 @@ declare module "obsidian" {
   }
 	interface SectionCache extends CacheItem {
 		type: 'heading' | 'list' | 'paragraph' | 'blockquote' | string;
+	}
+
+	// interface LinkInfo {
+	// 	/**
+	// 	 * text display in prev mode
+	// 	 */
+	// 	displayText: string,
+	// 	/**
+	// 	 * fileName#^subpath
+	// 	 */
+	// 	link: string,
+	// 	/**
+	// 	 * text in editor [[{@link link}|showText]]
+	// 	 */
+	// 	original: string,
+	// 	position: Pos,
+	// }
+	interface ChangeInfo {
+		/**
+		 * new link text set to editor
+		 */
+		change: string,
+		/**
+		 * old link info
+		 */
+		reference: LinkCache,
+		/**
+		 * file contains this link
+		 */
+		sourcePath: string,
+	}
+	interface Changes {
+		data: Record<string, ChangeInfo[]>
+		add: (key: string, value: ChangeInfo) => void,
+		remove: (key: string, value: ChangeInfo) => void,
+		removeKey: (key: string) => void,
+		get: (key: string) => ChangeInfo[],
+		keys: () => string[],
+		clear: (key: string) => void,
+		clearAll: () => void,
+		contains: (key: string, value: ChangeInfo) => boolean,
+		count: () => number,
 	}
 }

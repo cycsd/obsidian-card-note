@@ -1,6 +1,5 @@
 import { App, BlockCache, Modal, Setting, debounce } from "obsidian";
 import { BaseReferenceSection, Section } from "dragUpdate"
-import { config } from "process";
 import { FileInfo } from "utility";
 
 
@@ -88,7 +87,7 @@ export class FileNameCheckModal extends Modal {
 		const actions = new Setting(contentEl)
 			.addButton(btn => {
 				btn.setIcon('file-plus-2')
-					.setTooltip('Create File')
+					.setTooltip('Create file')
 					.setCta()
 					.onClick(() => {
 						this.onSubmit({ type: 'createFile', newName: this.newName });
@@ -99,7 +98,7 @@ export class FileNameCheckModal extends Modal {
 			const section = this.section;
 			actions.addButton(btn => {
 				btn.setIcon('link')
-					.setTooltip('LinkToReference')
+					.setTooltip('Link to reference')
 					.setCta()
 					.onClick(() => {
 						this.onSubmit({
@@ -121,7 +120,7 @@ export class FileNameCheckModal extends Modal {
 				})
 		}).addButton(btn => {
 			btn.setIcon('x')
-				.setTooltip(`Cancel ${this.test}`)
+				.setTooltip(`Cancel`)
 				//.setButtonText("Cancel")
 				.setCta()
 				.onClick(() => {
@@ -140,9 +139,9 @@ export class FileNameCheckModal extends Modal {
 	}
 	getNameDesc = (name: string): DocumentFragment => {
 		const frag = document.createDocumentFragment()
-		frag.createDiv().innerText = `Create File ${name}`;
+		frag.createDiv().innerText = `Create file ${name}`;
 		frag.createDiv().innerText = `or`;
-		frag.createDiv().innerText = `Link to Block ${name}`;
+		frag.createDiv().innerText = `Link to block ${name}`;
 		return frag
 	}
 	trySetDescription(setting: Setting, desc: string | DocumentFragment): void {
@@ -164,8 +163,4 @@ export class FileNameCheckModal extends Modal {
 			})
 		}
 	}
-
-
-
-
 }
