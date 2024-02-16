@@ -16,9 +16,9 @@ import { FileInfo, LinkInfo, LinkToChanges, createFullPath, isBreak } from "src/
 import { CanvasData, CanvasFileData } from "obsidian/canvas";
 
 
-type LinkFile = {
+export type LinkFilePath = {
 	file: TFile,
-	subpath: string,
+	subpath?: string,
 }
 
 
@@ -128,10 +128,10 @@ export default class CardNote extends Plugin {
 		//觀察是否不更新自己以及canvas
 		this.app.fileManager.updateInternalLinks(changes);
 	}
-	renameCanvasSubpath(origin: LinkFile, newFile: LinkFile) {
+	renameCanvasSubpath(origin: LinkFilePath, newFile: LinkFilePath) {
 		const canvasUpdater = this.app.fileManager.linkUpdaters.canvas;
 		if (origin.file.path === newFile.file.path && origin.subpath !== newFile.subpath) {
-			canvasUpdater.renameSubpath(origin.file, origin.subpath, newFile.subpath);
+			canvasUpdater.renameSubpath(origin.file, origin.subpath ?? "", newFile.subpath ?? "");
 		}
 	}
 	updateCanvasLinks(

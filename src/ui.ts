@@ -129,8 +129,7 @@ export class FileNameCheckModal extends Modal {
 				})
 			})
 		if (this.errorMessage) {
-			new Setting(contentEl)
-				.setDesc(this.errorMessage!)
+			actions.setDesc(this.errorMessage)
 		}
     }
     onClose(): void {
