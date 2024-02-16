@@ -84,25 +84,25 @@ export async function ReCheck<T, R = T, R2 = R>(config: CheckConfig<T, R, R2>): 
 			else {
 				return validResult;
 			}
-// const file = await config.provide(state, folder, errorMessage);
-// if (isBreak(file)) {
-// 	return file;
-// }
-// const e = config.check(file);
-// if (e instanceof Error)
-// if (file.fileName.length === 0) {
-// 	throw new Error("File Name can not be empty!");
-// }
-// if (file.fileName.endsWith(" ")) {
-// 	throw new Error("File Name can not end with white space!");
-// }
-// const filePathUncheck = createFullPath(file)
-// const normalFilePath = normalizePath(filePathUncheck);
-// plugin.app.vault.checkPath(normalFilePath)
-// if (await plugin.app.vault.adapter.exists(normalFilePath)) {
-// 	throw new Error("File Exist!");
-// }
-// return file;
+			// const file = await config.provide(state, folder, errorMessage);
+			// if (isBreak(file)) {
+			// 	return file;
+			// }
+			// const e = config.check(file);
+			// if (e instanceof Error)
+			// if (file.fileName.length === 0) {
+			// 	throw new Error("File Name can not be empty!");
+			// }
+			// if (file.fileName.endsWith(" ")) {
+			// 	throw new Error("File Name can not end with white space!");
+			// }
+			// const filePathUncheck = createFullPath(file)
+			// const normalFilePath = normalizePath(filePathUncheck);
+			// plugin.app.vault.checkPath(normalFilePath)
+			// if (await plugin.app.vault.adapter.exists(normalFilePath)) {
+			// 	throw new Error("File Exist!");
+			// }
+			// return file;
 
 		} catch (error) {
 			args = config.update(args);
@@ -172,27 +172,27 @@ export function markdownParser(content: string): MarkdownSyntax {
 	}
 	return { type: 'text', title: content }
 }
-export type LinkText = {
+export type LinkInfo = {
 	path: string,
 	subpath: string,
 	link: LinkCache,
 }
 const WIKILINK = /^(?<left>!?\[\[)(?<link>.*?)(?<diplay>\|(?<diplayText>.*))?(?<right>]])$/;
-export function UpdateLinkText(sourcePath: string, text: LinkText, newPath: (link: LinkText) => string): ChangeInfo {
-	const wikimatch = WIKILINK.exec(text.link.original);
+export function UpdateLinkText(sourcePath: string, linkInfo: LinkInfo, newPath: (link: LinkInfo) => string): ChangeInfo {
+	const wikimatch = WIKILINK.exec(linkInfo.link.original);
 	let newText = "";
 	if (wikimatch) {
-		const np = newPath(text);
+		const np = newPath(linkInfo);
 		const display = wikimatch.groups?.diplay ?? "";
 		newText = `${wikimatch.groups?.left}${np}${display}${wikimatch.groups?.right}`;
 	}
 	return {
 		change: newText,
-		reference: text.link,
+		reference: linkInfo.link,
 		sourcePath,
 	}
 }
-export function LinkToChanges(linkMap: Map<string, LinkText[]>, newPath: (link: LinkText) => string): Changes {
+export function LinkToChanges(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string): Changes {
 	const change: Changes = {
 		data: {},
 		keys: () => Object.keys(change.data),

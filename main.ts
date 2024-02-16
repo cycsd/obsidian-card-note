@@ -10,10 +10,10 @@ import {
 	TextFileView,
 	normalizePath,
 } from "obsidian";
-import { dragExtension } from "dragUpdate";
+import { dragExtension } from "src/dragUpdate";
 import { isObsidianCanvasView } from "src/adapters/obsidian";
-import { FileInfo, LinkText, LinkToChanges, createFullPath, isBreak } from "utility";
-import { CanvasData } from "obsidian/canvas";
+import { FileInfo, LinkInfo, LinkToChanges, createFullPath, isBreak } from "src/utility";
+import { CanvasData, CanvasFileData } from "obsidian/canvas";
 
 
 type LinkFile = {
@@ -123,7 +123,7 @@ export default class CardNote extends Plugin {
 	// 	this.app.fileManager.updateInternalLinks(changes);
 
 	// }
-	updateInternalLinks(linkMap: Map<string, LinkText[]>, newPath: (link: LinkText) => string) {
+	updateInternalLinks(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string) {
 		const changes = LinkToChanges(linkMap, newPath);
 		//觀察是否不更新自己以及canvas
 		this.app.fileManager.updateInternalLinks(changes);
@@ -134,17 +134,20 @@ export default class CardNote extends Plugin {
 			canvasUpdater.renameSubpath(origin.file, origin.subpath, newFile.subpath);
 		}
 	}
-	updateCanvasLinks(origin: LinkFile, newFile: LinkFile) {
+	updateCanvasLinks(
+		findCanvas: (embed: { file: string, subpath: string }) => boolean,
+		findNode: (node: CanvasFileData) => boolean,
+		map: (node: CanvasFileData) => CanvasFileData) {
+		if (!origin) {
+			return
+		}
 		const canvasUpdater = this.app.fileManager.linkUpdaters.canvas;
 		// else if (origin.file.path !== newFile.file.path) {
-		const canvases = canvasUpdater.getAll();
+		const canvases = canvasUpdater.canvas.index.getAll();
 		const queue: string[] = [];
 		for (const filePath in canvases) {
 			const canvasCache = canvases[filePath];
-			const find = canvasCache.embeds.find(eb => {
-				const subpath = eb.subpath; // #^...
-				return eb.file === origin.file.path && subpath === origin.subpath;
-			});
+			const find = canvasCache.embeds.find(findCanvas);
 			if (find) {
 				queue.push(filePath);
 			}
@@ -155,12 +158,8 @@ export default class CardNote extends Plugin {
 				this.app.vault.process(canvasFile, data => {
 					const canvasData = JSON.parse(data) as CanvasData;
 					const nodeUpdate = canvasData.nodes.map(node => {
-						if (node.type === 'file' && node.file === origin.file.path && node.subpath === origin.subpath) {
-							return {
-								...node,
-								file: newFile.file.path,
-								subpath: newFile.subpath,
-							}
+						if (node.type === 'file' && findNode(node)) {
+							return map(node)
 						}
 						return node
 					})
@@ -192,10 +191,10 @@ export default class CardNote extends Plugin {
 		const headingInRange: HeadingCache[] = cache?.headings?.filter(inRange) ?? [];
 		return [blocksInRange, headingInRange]
 	}
-	findLinks(targetFile: TFile, subpath: string[]): [LinkText[] | undefined, Map<string, LinkText[]>] {
+	findLinks(targetFile: TFile, subpath: string[]): [LinkInfo[] | undefined, Map<string, LinkInfo[]>] {
 		const cache = this.app.metadataCache;
 		const fileManger = this.app.fileManager;
-		const linkMap = new Map<string, LinkText[]>();
+		const linkMap = new Map<string, LinkInfo[]>();
 		fileManger.iterateAllRefs((fileName, linkInfo) => {
 			fileName.normalize()
 			//sourcePath = 來源檔名
@@ -206,7 +205,7 @@ export default class CardNote extends Plugin {
 			//getfirstlinkpathdest: 得到來源檔名中此link path連結到哪個file
 			if (subpath.contains(linkSubpath) && cache.getFirstLinkpathDest(path, fileName) === targetFile) {
 				const links = linkMap.get(fileName);
-				const linkText: LinkText = { path, subpath: linkSubpath, link: linkInfo };
+				const linkText: LinkInfo = { path, subpath: linkSubpath, link: linkInfo };
 				if (links) {
 					links.push(linkText);
 				}

@@ -1,6 +1,6 @@
 import { App, BlockCache, Modal, Setting, debounce } from "obsidian";
-import { BaseReferenceSection, Section } from "dragUpdate"
-import { FileInfo } from "utility";
+import { BaseReferenceSection, Section } from "src/dragUpdate"
+import { FileInfo } from "src/utility";
 
 
 export type CreateFile = {

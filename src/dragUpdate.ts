@@ -2,7 +2,7 @@ import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language"
-import { Break, ReCheck, createDefaultFileName, createFullPath, FileInfo, isBreak, markdownParser, LineBreak as LINEBREAK, MarkdownFileExtension, throttle } from "utility";
+import { Break, ReCheck, createDefaultFileName, createFullPath, FileInfo, isBreak, markdownParser, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo } from "src/utility";
 import { BlockCache, CacheItem, HeadingCache, ListItemCache, MarkdownRenderer, SectionCache, TFile } from "obsidian";
 import { CreateFile, FileNameCheckModal, FileNameModelConfig, LinkToReference, UserAction } from "src/ui";
 import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
@@ -90,6 +90,11 @@ function isReferenceBlock(block: Block): block is BaseReferenceBlock {
 			|| block.type === 'list'
 			|| block.type === 'linkBlock')
 
+}
+const a = (p: string) => 0;
+function getSomething(s = a) {
+	const b = s('');
+	console.log(b)
 }
 function getSelectOffset(select: FoldableLine | OneLine | SingleSelection) {
 	if (select.type === 'line' && select.section?.type === 'reference') {
@@ -288,7 +293,11 @@ export const dragExtension = (plugin: CardNote) => {
 		let info: UserSelection;
 		let sourceFile: TFile | undefined | null;
 		const handleDrop = async (e: DragEvent) => {
-			const createFileAndDraw = async (draw: (action: Action, link: string) => void) => {
+			const createFileAndDraw = async (
+				draw: (action: Action, link: string) => void,
+				updateInternalLinks?: (linkMaps: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string) => void,
+				updateCanvasLinks?: (sourceFile: TFile, newFile: TFile) => void,
+			) => {
 				// const findReferenceBlock = () => {
 				// 	const sections = fileCache?.sections?.filter(sec => {
 				// 		return info.type !== 'mutiple'
@@ -316,19 +325,34 @@ export const dragExtension = (plugin: CardNote) => {
 				const action = await userAction(plugin, section, info);
 				if (!isBreak(action)) {
 					if (action.type === 'createFile') {
-					//replace editor's select line or text with link
+						//replace editor's select line or text with link
 						const filePath = createFullPath(action.file);
-						const file = await plugin.app.vault.create(filePath, info.content);
-						const newPath = plugin.createPath(file);
-						const fileLink = plugin.createLinkText(file);
-						if (section.type === 'reference') {
+						const newFile = await plugin.app.vault.create(filePath, info.content);
+						const newPath = plugin.createPath(newFile);
+						const fileLink = plugin.createLinkText(newFile);
+						//if (section.type === 'reference') {
+						if (sourceFile) {
 							//update vault internal link
 							const [blocks, headings] = getLinkBlocks(info, sourceFile, plugin);
-							const subpath = [...blocks.map(block => `#^${block.id}`), ...headings.map(heading => `#${heading}`)];
-							const [selfLinks, outer] = plugin.findLinks(sourceFile!, subpath);
+							const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(heading => `#${heading}`)];
+							const [selfLinks, outer] = plugin.findLinks(sourceFile, subpathSet);
+							const updateLinks = updateInternalLinks ?? plugin.updateInternalLinks;
+							updateLinks(outer, text => `${newPath}${text.subpath}`);
 							plugin.updateInternalLinks(outer, text => {
 								return `${newPath}${text.subpath}`
 							})
+							const updateCanvasReference = updateCanvasLinks ?? plugin.updateCanvasLinks;
+							plugin.updateCanvasLinks(
+								embed => {
+									const subpath = embed.subpath;// #^;
+									return embed.file === sourceFile?.path && subpathSet.contains(subpath)
+								},
+								node => node.file === sourceFile?.path && node.subpath !== undefined && subpathSet.contains(node.subpath),
+								node => ({
+									...node,
+									file: newFile.path,
+								})
+							)
 						}
 						//handle self link and replace text with link
 						const replaceTextWithLink = () => {
@@ -342,7 +366,7 @@ export const dragExtension = (plugin: CardNote) => {
 							view.dispatch(trans);
 						};
 						replaceTextWithLink();
-						draw({ ...action, newFile: file }, fileLink);
+						draw({ ...action, newFile: newFile }, fileLink);
 					}
 					if (action.type === 'linkToReference') {
 						// const subpath = action.section.type === 'reference'

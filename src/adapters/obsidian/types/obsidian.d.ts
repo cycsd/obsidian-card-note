@@ -46,15 +46,19 @@ declare module "obsidian" {
 	 * @param fn 
 	 * @returns 
 	 */
-	  iterateAllRefs: (fn: (fileName: string, cache: LinkCache) => void) => void
-	  updateInternalLinks: (changes: Changes) => void
-	  linkUpdaters: {
-		  canvas: {
-			  getAll: () => Record<string, { caches: Record<string, any>[], embeds: { file?: string, subpath?: string }[] }>
-			  //subpath behind #
-			  renameSubpath: (file: TFile, oldSubpath: string, newSubpath: string) => any
-		  }
-	  }
+	iterateAllRefs: (fn: (fileName: string, cache: LinkCache) => void) => void
+	updateInternalLinks: (changes: Changes) => void
+	linkUpdaters: {
+		canvas: {
+			canvas: {
+				index: {
+					getAll: () => Record<string, { caches: Record<string, any>[], embeds: { file?: string, subpath?: string }[] }>
+				}			
+			}
+			//subpath behind #
+			renameSubpath: (file: TFile, oldSubpath: string, newSubpath: string) => any
+		}
+	}
   }
 
   interface MetadataCache {
