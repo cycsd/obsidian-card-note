@@ -1,12 +1,18 @@
+//import { ExcalidrawLib } from 'obsidian-excalidraw-plugin/lib/typings/ExcalidrawLib';
 import CardNote from "main";
 import "obsidian";
-import { TFile} from "obsidian";
+import { TFile, WorkspaceLeaf } from "obsidian";
 export type { ExcalidrawBindableElement, ExcalidrawElement, FileId, FillStyle, StrokeRoundness, StrokeStyle } from "@zsviczian/excalidraw/types/element/types";
 export type { ExcalidrawImperativeAPI, Point } from "@zsviczian/excalidraw/types/types";
 import { getEA as excalidrawGetEA } from "obsidian-excalidraw-plugin";
 import { ExcalidrawAutomate } from "obsidian-excalidraw-plugin/lib/ExcalidrawAutomate"
 import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
-//import { ExcalidrawLib } from 'obsidian-excalidraw-plugin/lib/typings/ExcalidrawLib';
+import { ObsidianCanvasNode } from "obsidian-excalidraw-plugin/lib/utils/CanvasNodeFactory";
+import { ObsidianMarkdownEmbeded } from "./types/ExcalidrawAutomate";
+//no export in source file
+//import { ExcalidrawLibs } from 'src/adapters/obsidian-excalidraw-plugin/types/ExcalidrawLib'
+
+
 
 export const VIEW_TYPE_EXCALIDRAW = "excalidraw";
 export function getEA(view?: any): ExcalidrawAutomate {
@@ -15,10 +21,14 @@ export function getEA(view?: any): ExcalidrawAutomate {
 export function isExcalidrawView(view: any): view is ExcalidrawView{
 	return view.getViewType() === VIEW_TYPE_EXCALIDRAW;
 }
+export function isObsidianMarkdownEmbeded(value: any): value is Required<ObsidianMarkdownEmbeded> {
+	// leaf: WorkspaceLeaf;
+	// node ?: ObsidianCanvasNode;
+	return 'leaf' in value && 'node' in value
+}
 const MAX_IMAGE_SIZE = 500;
 export async function insertEmbeddableOnDrawing(event: DragEvent, view: ExcalidrawView, fileLink: string, file: TFile, plugin: CardNote) {
 	try {
-
 		const ea = getEA();
 		const eaView = ea.setView(view);
 		//@ts-ignore
@@ -49,19 +59,6 @@ export async function insertEmbeddableOnDrawing(event: DragEvent, view: Excalidr
 		//insertEmbeddableToView()
 	} catch (error) {
 		console.log(error);
-		// new WarningPrompt(
-// 	app,
-// 	"⚠ ExcaliBrain Disabled: Excalidraw Plugin not found",
-// 	t("EXCALIDRAW_NOT_FOUND")
-// ).show(async (result: boolean) => {
-// 	new Notice("Disabling ExcaliBrain Plugin", 8000);
-// 	errorlog({
-// 		fn: this.onload,
-// 		where: "main.ts/onload()",
-// 		message: "Excalidraw not found",
-// 	});
-// 	this.app.plugins.disablePlugin(PLUGIN_NAME);
-// });
 	}
 
 }

@@ -3,6 +3,7 @@ import {
 	BlockCache,
 	CacheItem,
 	HeadingCache,
+	MarkdownView,
 	Plugin,
 	PluginSettingTab,
 	Setting,
@@ -10,16 +11,11 @@ import {
 	TextFileView,
 	normalizePath,
 } from "obsidian";
-import { dragExtension } from "src/dragUpdate";
-import { isObsidianCanvasView } from "src/adapters/obsidian";
-import { FileInfo, LinkInfo, LinkToChanges, createFullPath, isBreak } from "src/utility";
+import { LinkFilePath, LinkPath, dragExtension } from "src/dragUpdate";
+import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
+import { FileInfo, LinkInfo, LinkToChanges, RequiredProperties, createFullPath, isBreak } from "src/utility";
 import { CanvasData, CanvasFileData } from "obsidian/canvas";
-
-
-export type LinkFilePath = {
-	file: TFile,
-	subpath?: string,
-}
+import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 
 
 // Remember to rename these classes and interfaces!
@@ -42,6 +38,9 @@ export default class CardNote extends Plugin {
 		this.registerEditorExtension(dragExtension(this));
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
+		this.app.metadataCache.on("changed", (file, data, cach) => {
+			console.log("file", file, 'data', data, 'cache', cach);
+		})
 	}
 	onunload() { }
 
@@ -63,20 +62,27 @@ export default class CardNote extends Plugin {
 			file.extension === 'md'
 		)
 	}
-	createLinkText(file: TFile, subpath?: string, displayText?: string) {
+	createLinkText(file: TFile, subpath?: string, displayText?: string): RequiredProperties<LinkPath, 'file' | 'text'> {
 		const fileLinkPath = this.createPath(file);
-		const sub = subpath ? `#${subpath}` : '';
-		const link = `${fileLinkPath}${sub}`
+		const sub = subpath ?? '';
+		const fullLinkPath = `${fileLinkPath}${sub}`
 		const useMarkdownLink = this.app.vault.getConfig("useMarkdownLinks");
 		const markdownLink = () => {
-			const display = displayText ?? link;
-			return `[${display}](${link})`;
+			const display = displayText ?? file;
+			return `[${display}](${fullLinkPath})`;
 		}
 		const wikiLink = () => {
 			const display = displayText ? `|${displayText}` : '';
-			return `[[${link}${display}]]`;
+			return `[[${fullLinkPath}${display}]]`;
 		}
-		return useMarkdownLink ? markdownLink() : wikiLink();
+		const linkText = useMarkdownLink ? markdownLink() : wikiLink();
+		return {
+			path: fileLinkPath,
+			subpath,
+			file,
+			text: linkText,
+			displayText,
+		}
 	}
 	getActiveEditorFile() {
 		const activeEditor = this.app.workspace.activeEditor;
@@ -85,16 +91,24 @@ export default class CardNote extends Plugin {
 		console.log("detect view", view);
 
 		if (view) {
+			//return canvas node because excalidraw also use canvas node and need to get narrow to block offset
 			if (isObsidianCanvasView(view)) {
 				const [selectNode] = view.canvas.selection;
-				// property type='file'|'text'|'group'... is missing, but in the unknownData property
-				// not correspond to typescript api
-				const file = selectNode?.file as TFile | undefined;
-				return file
+				// selection is canvas node not the json canvas node data,
+				// so property type = 'file' | 'text' | 'group' is in the unknownData property
+				//const file = selectNode?.file as TFile | undefined;
+				return selectNode && isCanvasFileNode(selectNode) ? selectNode : undefined
+			}
+			if (isExcalidrawView(view)) {
+				// 	this.app.workspace.activeEditor
+				const embeddable = view.getActiveEmbeddable()
+				return embeddable?.node && isCanvasFileNode(embeddable.node) ? embeddable.node : undefined
+			//embeddable?.node?.file ?? (embeddable?.leaf.view instanceof MarkdownView ? embeddable.leaf.view.file : undefined)
+			// 	return
 			}
 
 		}
-		return activeEditor?.file
+		return activeEditor
 	}
 
 	async checkFileName(file: FileInfo) {
@@ -134,35 +148,25 @@ export default class CardNote extends Plugin {
 			canvasUpdater.renameSubpath(origin.file, origin.subpath ?? "", newFile.subpath ?? "");
 		}
 	}
-	updateCanvasLinks(
-		findCanvas: (embed: { file: string, subpath: string }) => boolean,
-		findNode: (node: CanvasFileData) => boolean,
-		map: (node: CanvasFileData) => CanvasFileData) {
-		if (!origin) {
-			return
-		}
+	getCanvas(filter?: (canvasPath: string, embed: { file?: string, subpath?: string }) => boolean) {
 		const canvasUpdater = this.app.fileManager.linkUpdaters.canvas;
-		// else if (origin.file.path !== newFile.file.path) {
 		const canvases = canvasUpdater.canvas.index.getAll();
 		const queue: string[] = [];
-		for (const filePath in canvases) {
-			const canvasCache = canvases[filePath];
-			const find = canvasCache.embeds.find(findCanvas);
+		for (const canvasFilePath in canvases) {
+			const canvasCache = canvases[canvasFilePath];
+			const find = canvasCache.embeds.find(embed => filter?.(canvasFilePath, embed) ?? true);
 			if (find) {
-				queue.push(filePath);
+				queue.push(canvasFilePath);
 			}
 		}
-		queue.forEach(filePath => {
-			const canvasFile = this.app.vault.getAbstractFileByPath(filePath);
+		return queue
+	}
+	updateCanvasNodes(canvasPath: string, newNode: (node: CanvasFileData) => CanvasFileData) {
+		const canvasFile = this.app.vault.getAbstractFileByPath(canvasPath);
 			if (canvasFile instanceof TFile && canvasFile.extension === 'canvas') {
-				this.app.vault.process(canvasFile, data => {
+				return this.app.vault.process(canvasFile, data => {
 					const canvasData = JSON.parse(data) as CanvasData;
-					const nodeUpdate = canvasData.nodes.map(node => {
-						if (node.type === 'file' && findNode(node)) {
-							return map(node)
-						}
-						return node
-					})
+					const nodeUpdate = canvasData.nodes.map(newNode)
 					const newData: CanvasData = {
 						edges: canvasData.edges,
 						nodes: nodeUpdate,
@@ -170,8 +174,23 @@ export default class CardNote extends Plugin {
 					return JSON.stringify(newData);
 				})
 			}
-		})
-		// }
+	}
+	updateCanvasLinks(
+		canvasPathSet: string[],
+		map: (node: CanvasFileData) => CanvasFileData) {
+		const result = canvasPathSet.map(canvasPath => this.updateCanvasNodes(canvasPath, node => {
+			if (node.type === 'file') {
+				return map(node)
+			}
+			return node
+		}))
+		return Promise.all(result)
+	// return this.updateCanvasNodes(queue, node => {
+	// 	if (node.type === 'file' && findNode(node)) {
+	// 		return map(node)
+	// 	}
+	// 	return node
+	// })
 	}
 	findLinkBlocks(file: TFile, from: number, to: number): [BlockCache[], HeadingCache[]] {
 		const cache = this.app.metadataCache.getFileCache(file);
@@ -191,7 +210,7 @@ export default class CardNote extends Plugin {
 		const headingInRange: HeadingCache[] = cache?.headings?.filter(inRange) ?? [];
 		return [blocksInRange, headingInRange]
 	}
-	findLinks(targetFile: TFile, subpath: string[]): [LinkInfo[] | undefined, Map<string, LinkInfo[]>] {
+	findLinks(targetFile: TFile, subpath: string[], match: (link: LinkPath) => boolean): [LinkInfo[] | undefined, Map<string, LinkInfo[]>] {
 		const cache = this.app.metadataCache;
 		const fileManger = this.app.fileManager;
 		const linkMap = new Map<string, LinkInfo[]>();
@@ -203,7 +222,7 @@ export default class CardNote extends Plugin {
 			const path = normalizeLink.split('#')[0];
 			const linkSubpath = normalizeLink.substring(path.length);
 			//getfirstlinkpathdest: 得到來源檔名中此link path連結到哪個file
-			if (subpath.contains(linkSubpath) && cache.getFirstLinkpathDest(path, fileName) === targetFile) {
+			if (match({ path, subpath: linkSubpath, file: cache.getFirstLinkpathDest(path, fileName) ?? undefined })) {
 				const links = linkMap.get(fileName);
 				const linkText: LinkInfo = { path, subpath: linkSubpath, link: linkInfo };
 				if (links) {

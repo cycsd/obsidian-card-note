@@ -1,12 +1,14 @@
-import CardNote, { LinkFilePath } from "main";
+import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language"
-import { Break, ReCheck, createDefaultFileName, createFullPath, FileInfo, isBreak, markdownParser, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo } from "src/utility";
-import { BlockCache, CacheItem, HeadingCache, ListItemCache, MarkdownRenderer, SectionCache, TFile } from "obsidian";
+import { Break, ReCheck, createDefaultFileName, createFullPath, FileInfo, isBreak, markdownParser, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties } from "src/utility";
+import { BlockCache, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, MarkdownRenderer, Plugin, SectionCache, TFile } from "obsidian";
 import { CreateFile, FileNameCheckModal, FileNameModelConfig, LinkToReference, UserAction } from "src/ui";
-import { insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
-import { isObsidianCanvasView } from "src/adapters/obsidian";
+import { getEA, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView, isObsidianMarkdownEmbeded } from "src/adapters/obsidian-excalidraw-plugin";
+import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
+import { CanvasFileNode } from "./adapters/obsidian/types/canvas";
+
 
 
 type Selection = {
@@ -79,16 +81,29 @@ type CreatNewFile = CreateFile & {
 }
 type LinkToFile = LinkToReference & {
 	sourceFile: TFile,
-	subPath: string,
+	subpath: string,
 }
 type Action = (CreatNewFile | LinkToFile) & {
 	newName: Promise<string>
 };
 export type LinkPath = {
 	path: string,
+	// #^...
 	subpath?: string,
+	// link to which file
+	file?: TFile,
+	text?: string,
+	displayText?: string,
 }
-function isReferenceBlock(block: Block): block is BaseReferenceBlock {
+
+export type LinkFilePath = RequiredProperties<LinkPath, 'file'>
+
+type NameBlock = { id: string } & CacheItem;
+
+function isRerenceBlock(cache: CacheItem & { id?: string }): cache is NameBlock {
+	return cache.id !== undefined
+}
+function isSpecialBlock(block: Block): block is BaseReferenceBlock {
 	return 'type' in block
 		&& (block.type === 'heading'
 			|| block.type === 'list'
@@ -136,7 +151,7 @@ function getListDefaultName(block: ListBlock) {
 function getDefaultName(section: Section) {
 	if (section.type === 'reference') {
 		const block = section.block;
-		if (isReferenceBlock(block)) {
+		if (isSpecialBlock(block)) {
 			return block.type === 'heading'
 				? block.cache.heading
 				: block.type === 'linkBlock'
@@ -216,6 +231,9 @@ function getSection(sourceFile: TFile | undefined | null, selected: UserSelectio
 				// 	&&sec.position.end.offset === line.to
 
 				// }
+
+				//only top list show in section cache,so find the top list first
+				//next step will find the corresponding list in cache.listItems
 				if (cache.type === 'list') {
 					return cache.position.start.offset <= start
 						&& start <= cache.position.end.offset;
@@ -283,10 +301,11 @@ function getSection(sourceFile: TFile | undefined | null, selected: UserSelectio
 		}
 	}
 }
-type UpdateInternalLinksPara = {
+type UpdateLinksInDrawPara = {
+	textFile: Map<string, LinkInfo[]>,
+	canvas: string[],
+	getNewPath: (oldPath: LinkPath) => LinkFilePath,
 	linkMatch: (link: LinkPath) => boolean,
-	linkMaps: Map<string, LinkInfo[]>,
-	getNewPath: (oldPath: LinkPath) => LinkPath,
 }
 export const dragExtension = (plugin: CardNote) => {
 	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
@@ -294,147 +313,190 @@ export const dragExtension = (plugin: CardNote) => {
 		let ghost: HTMLElement;
 		let dragoverBackground: HTMLElement;
 		let info: UserSelection;
-		let sourceFile: TFile | undefined | null;
+		let source: MarkdownFileInfo | CanvasFileNode | undefined | null;
 		const handleDrop = async (e: DragEvent) => {
 			const createFileAndDraw = async (
-				draw: (action: Action, link: string) => void,
-				updateInternalLinks: (
-					//sourceFile: TFile,
-					paras: UpdateInternalLinksPara,
-				) => void,
-				//updateInternalLinks?: (linkMaps: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string) => void,
-				//updateCanvasLinks?: (sourceFile: TFile, newFile: TFile) => void,
+				draw: (action: Action, target: RequiredProperties<LinkPath, 'file' | 'text'> | string) => void,
+				updateLinksInDraw: (para: UpdateLinksInDrawPara) => Omit<UpdateLinksInDrawPara, 'getNewPath' | 'linkMatch'>
 			) => {
-				const section = info.type === 'line' ? info.section! : getSection(sourceFile, info, plugin);
+				const section = info.type === 'line' ? info.section! : getSection(source?.file, info, plugin);
 				const action = await userAction(plugin, section, info);
 				if (!isBreak(action)) {
 					if (action.type === 'createFile') {
 						//replace editor's select line or text with link
 						const filePath = createFullPath(action.file);
 						const newFile = await plugin.app.vault.create(filePath, info.content);
-						const newPath = plugin.createPath(newFile);
 						const fileLink = plugin.createLinkText(newFile);
+						//const newPath = fileLink.path;
 						//if (section.type === 'reference') {
-						if (sourceFile) {
+						if (source?.file) {
 							//update vault internal link
-							const [blocks, headings] = getLinkBlocks(info, sourceFile, plugin);
-							const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(heading => `#${heading}`)];
-							const [selfLinks, outer] = plugin.findLinks(sourceFile, subpathSet);
-							updateInternalLinks(
-								{
-									linkMatch: link =>
-										link.path === sourceFile?.path
-										&& link.subpath !== undefined
-										&& subpathSet.contains(link.subpath),
-									getNewPath: (link) => {
-										return { path: newPath, subpath: link.subpath }
-									},
-									linkMaps: outer
+							const [blocks, headings] = getLinkBlocks(info, source.file, plugin);
+							const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(cache => `#${cache.heading}`)];
+							const match = (link: LinkPath) =>
+								(link.path === source?.file?.path || link.file === source?.file)
+								&& link.subpath !== undefined
+								&& subpathSet.contains(link.subpath);
+							const createNewPath = (oldPath: LinkPath): LinkFilePath => {
+								return plugin.createLinkText(newFile, oldPath.subpath, oldPath.displayText);
+
+							}
+							const [selfLinks, outer] = plugin.findLinks(
+								source.file, subpathSet,
+								match);
+							const canvasWithLink = plugin.getCanvas((path, embed) => {
+								const subpath = embed.subpath;//#^
+								return match({ path: embed.file ?? '', subpath })
+							})
+							const undealData = updateLinksInDraw({
+								textFile: outer,
+								canvas: canvasWithLink,
+								linkMatch: match,
+								getNewPath: createNewPath
+							});
+							plugin.updateInternalLinks(undealData.textFile, text => {
+								const newPath = createNewPath({ path: text.path, subpath: text.subpath });
+								return `${newPath.path}${newPath.subpath}`
+							})
+							plugin.updateCanvasLinks(undealData.canvas, node => {
+								if (match({ path: node.file, subpath: node.subpath })) {
+									const newPath = createNewPath({ path: node.file, subpath: node.subpath });
+									return {
+										...node,
+										file: newPath.path + MarkdownFileExtension,
+										subpath: newPath.subpath,
+									}
 								}
-							)
-							// const updateLinks = updateInternalLinks ?? plugin.updateInternalLinks;
-							// updateLinks(outer, text => `${newPath}${text.subpath}`);
-							// plugin.updateInternalLinks(outer, text => {
-							// 	return `${newPath}${text.subpath}`
-							// })
-							// const updateCanvasReference = updateCanvasLinks ?? plugin.updateCanvasLinks;
-							// plugin.updateCanvasLinks(
-							// 	embed => {
-							// 		const subpath = embed.subpath;// #^;
-							// 		return embed.file === sourceFile?.path && subpathSet.contains(subpath)
-							// 	},
-							// 	node => node.file === sourceFile?.path && node.subpath !== undefined && subpathSet.contains(node.subpath),
-							// 	node => ({
-							// 		...node,
-							// 		file: newFile.path,
-							// 	})
-							// )
+								return node
+							})
 						}
 						//handle self link and replace text with link
 						const replaceTextWithLink = () => {
 							const trans = view.state.update({
 								changes: info.type !== 'mutiple'
-									? { ...getSelectOffset(info), insert: fileLink }
+									? { ...getSelectOffset(info), insert: fileLink.text }
 									: info.selections.map(line => {
-										return { from: line.from, to: line.to, insert: fileLink }
+										return { from: line.from, to: line.to, insert: fileLink.text }
 									})
 							})
 							view.dispatch(trans);
 						};
 						replaceTextWithLink();
+						// console.log("detect file cache change?") not immediately
+						// plugin.app.fileManager.iterateAllRefs((file, cache) => {
+						// 	console.log("file: ", file, "link cache:", cache);
+						// });
+						// plugin.app.vault.process(newFile, data => {
+						// 	console.log("detect new file", data);
+						// 	return data
+						// })
+						//plugin.app.metadataCache.getFileCache
 						draw({ ...action, newFile: newFile }, fileLink);
 					}
 					if (action.type === 'linkToReference') {
-						// const subpath = action.section.type === 'reference'
-						// 	?
-						// 	: undefined;
 						const name = await action.newName;
-						const subpathPrevSymbol = isReferenceBlock(action.section.block)
+						const subpathPrevSymbol = isSpecialBlock(action.section.block)
 							&& action.section.block.type === 'heading' ? '#' : '#^';
-
+						const subpath = subpathPrevSymbol + name;
+						const fileLink = plugin.createLinkText(source!.file!, subpath);
 						draw({
 							...action,
-							subPath: subpathPrevSymbol + name,
-							sourceFile: sourceFile!
-						}, '');
+							subpath,
+							sourceFile: source!.file!
+						}, fileLink);
 					}
 				}
 
 			};
-			const updateInternalLinks = () => {
-				return (para: UpdateInternalLinksPara) => {
-					const { linkMatch, linkMaps, getNewPath } = para
-					plugin.updateInternalLinks(
-						linkMaps,
-						text => {
-							const newPath = getNewPath({ path: text.path, subpath: text.subpath });
-							return `${newPath.path}${newPath.subpath}`
-						});
-					plugin.updateCanvasLinks(
-						embed => {
-							const subpath = embed.subpath;// #^;
-							return linkMatch({ path: embed.file, subpath })
-						},
-						node => linkMatch({ path: node.file, subpath: node.subpath }),
-						node => {
-							const newPath = getNewPath({ path: node.file, subpath: node.subpath });
-							return {
-								...node,
-								file: newPath.path + MarkdownFileExtension,
-								subpath: newPath.subpath,
-							}
-						}
-					);
-				}
-			}
 			const locate = plugin.app.workspace.getDropLocation(e);
 			const target = locate.children.find(child => child.tabHeaderEl.className.contains("active"));
 			const drawView = target?.view;
 			if (isExcalidrawView(drawView)) {
+				// const ea = getEA();
+				// const eaView = ea.setView(view);
 				createFileAndDraw(
-					(action, fileLink) => {
-					if (action.type === 'createFile') {
-						insertEmbeddableNoteOnDrawing(e, drawView, fileLink, action.newFile, plugin);
-					}
+					(action, target) => {
+						if (typeof (target) !== 'string') {
+							insertEmbeddableNoteOnDrawing(e, drawView, target.text, target.file, plugin);
+						}
 					},
-					updateInternalLinks());
+					(para) => {
+						const { linkMatch, textFile, getNewPath } = para
+						if (textFile.delete(drawView.file?.path ?? "")) {
+							const nodes = Array.from(drawView.embeddableLeafRefs.entries()).map(value => {
+								const [id, refObject] = value;
+								const getLinkInfo = (node: CanvasFileNode) => {
+									return { path: node.filePath, subpath: node.subpath }
+								}
+								if (isObsidianMarkdownEmbeded(refObject)
+									&& isCanvasFileNode(refObject.node)
+									&& linkMatch(getLinkInfo(refObject.node))) {
+									return { id, link: getNewPath(getLinkInfo(refObject.node)) }
+								}
+							}).filter(v => v !== undefined) as { id: string, link: LinkFilePath }[];
+							nodes.forEach(node => {
+								const element = drawView.excalidrawAPI.getSceneElements().find((e) => e.id === node.id);
+								drawView.excalidrawData.elementLinks.set(node.id, node.link.text!)
+								//@ts-ignore
+								ExcalidrawLib.mutateElement(element, { link: node.link.text });
+							}
+							)
+							drawView.setDirty(99);
+							drawView.updateScene({ appState: { activeEmbeddable: null } });
+
+						}
+						return {
+							...para,
+							textFile,
+						}
+					});
 			} else if (isObsidianCanvasView(drawView)) {
 				const pos = drawView.canvas.posFromEvt(e);
-				createFileAndDraw((action, fileLink) => {
-					const file = action.type === 'createFile' ? action.newFile : action.sourceFile;
-					const subpath = action.type === 'linkToReference' ? action.subPath : undefined;
+				createFileAndDraw((action, target) => {
+					// const file = action.type === 'createFile' ? action.newFile : action.sourceFile;
+					// const subpath = action.type === 'linkToReference' ? action.subpath : undefined;
+					// drawView.canvas.createFileNode({
+					// 	file: file,
+					// 	pos,
+					// 	subpath,
+					// 	save: true
+					// });
+					if (typeof (target) !== 'string') {
 					drawView.canvas.createFileNode({
-						file: file,
+						file: target.file,
 						pos,
-						subpath,
-						save: true
-					});
+						subpath: target.subpath,
+						save: true,
+					})
+					}
+					else {
+						//drawView.canvas.creatTextNode
+					}
 				},
 					(para) => {
-						const { linkMatch, linkMaps, getNewPath } = para
-						updateInternalLinks()(para);
-						drawView
-					});
+						const { linkMatch, getNewPath, canvas } = para;
+						const findSelf = canvas.find(canvas => canvas === drawView.file?.path);
+						if (findSelf) {
+							drawView.canvas.nodes.forEach((node, id) => {
+								const path = (node: CanvasFileNode): LinkPath => ({
+									path: node.filePath,
+									file: node.file,
+									subpath: node.subpath
+								})
+								if (isCanvasFileNode(node) && linkMatch(path(node))) {
+									const newPath = getNewPath(path(node));
+									node.setFilePath(newPath.file.path, newPath.subpath ?? "")
+								}
+							});
+							//drawView.canvas.requestSave();
+							return {
+								...para,
+								canvas: canvas.filter(canvas => canvas !== findSelf),
+							}
+						}
+						return para
+					}
+					,);
 			}
 		}
 		const displayContentWhenDragging = (e: DragEvent) => {
@@ -449,7 +511,7 @@ export const dragExtension = (plugin: CardNote) => {
 		};
 		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
-			sourceFile = plugin.getActiveEditorFile();
+			source = plugin.getActiveEditorFile();
 			const getSelection = () => {
 				const selectLines = view.state.selection.ranges.map(range => ({
 					from: range.from,
@@ -488,7 +550,7 @@ export const dragExtension = (plugin: CardNote) => {
 							to: line.to,
 						},
 					}
-					const section = getSection(sourceFile, { ...selected, content: '' }, plugin);
+					const section = getSection(source?.file, { ...selected, content: '' }, plugin);
 					const content = section && section.type === 'reference'
 						? doc.sliceString(section.block.cache.position.start.offset, section.block.cache.position.end.offset)
 						: line.text;

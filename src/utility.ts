@@ -1,6 +1,10 @@
 import CardNote from "main";
 import { Changes, ChangeInfo, normalizePath, LinkCache } from "obsidian";
 
+
+export type RequiredProperties<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
+
+
 export function throttle<T extends unknown[], V>(
 	cb: (...args: [...T]) => V,
 	secondTimeout = 0,
@@ -177,20 +181,73 @@ export type LinkInfo = {
 	subpath: string,
 	link: LinkCache,
 }
-const WIKILINK = /^(?<left>!?\[\[)(?<link>.*?)(?<diplay>\|(?<diplayText>.*))?(?<right>]])$/;
+
+
+export type LinkText = Partial<{
+	left: string,
+	right: string,
+	path: string,
+	display: string,
+	displayText: string,
+}> & {
+	text: string
+}
+// /^(!?\[\[)(.*?)(\|(.*))?(]])$/
+const WIKILINK = /^(?<left>!?\[\[)(?<link>.*?)(?<display>\|(?<displayText>.*))?(?<right>]])$/;
+// /^(!?\[)(.*?)(]\(\s*)[^ ]+((?:\s+.*?)?\))$/
+const MARKDOWNLINK = /^(?<left>!?\[)(?<displayText>.*?)(?<mid>]\(\s*)(?<link>[^ ]+)(?<right>(?:\s+.*?)?\))$/;
 export function UpdateLinkText(sourcePath: string, linkInfo: LinkInfo, newPath: (link: LinkInfo) => string): ChangeInfo {
-	const wikimatch = WIKILINK.exec(linkInfo.link.original);
-	let newText = "";
-	if (wikimatch) {
-		const np = newPath(linkInfo);
-		const display = wikimatch.groups?.diplay ?? "";
-		newText = `${wikimatch.groups?.left}${np}${display}${wikimatch.groups?.right}`;
+	const linkMatch: { regex: RegExp, newText: (match: RegExpExecArray, path: string) => string }[] = [
+		{
+			regex: WIKILINK,
+			newText: (match, path) => {
+				const display = match.groups?.display ?? "";
+				return `${match.groups?.left}${path}${display}${match.groups?.right}`
+			}
+		},
+		{
+			regex: MARKDOWNLINK,
+			newText(match, path) {
+				const display = match.groups?.displayText ?? "";
+				return `${match.groups?.left}${display}${match.groups?.mid}${path}${match.groups?.right}`
+			},
+		}];
+	for (const r of linkMatch) {
+		const match = r.regex.exec(linkInfo.link.original);
+		if (match) {
+			const np = newPath(linkInfo);
+			//const display = match.groups?.display ?? "";
+			const newText = r.newText(match, np);
+			return {
+				change: newText,
+				reference: linkInfo.link,
+				sourcePath,
+			}
+		}
 	}
 	return {
-		change: newText,
+		change: `[[${newPath(linkInfo)}]]`,
 		reference: linkInfo.link,
 		sourcePath,
 	}
+	//const wikiMatch = WIKILINK.exec(linkInfo.link.original);
+	// let newText = "";
+	// if (wikiMatch) {
+	// 	const np = newPath(linkInfo);
+	// 	const display = wikiMatch.groups?.display ?? "";
+	// 	newText = `${wikiMatch.groups?.left}${np}${display}${wikiMatch.groups?.right}`;
+	// }
+	// const markdownMatch = MARKDOWNLINK.exec(linkInfo.link.original);
+	// if (markdownMatch) {
+	// 	const np = newPath(linkInfo);
+	// 	const display = wikiMatch?.groups?.displayText ?? "";
+	// 	newText = ``
+	// }
+	// return {
+	// 	change: newText,
+	// 	reference: linkInfo.link,
+	// 	sourcePath,
+	// }
 }
 export function LinkToChanges(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string): Changes {
 	const change: Changes = {
