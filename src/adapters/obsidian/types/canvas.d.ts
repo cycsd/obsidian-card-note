@@ -14,10 +14,18 @@ export interface ObsidianCanvas {
 		pos: { x: number, y: number },
 		subpath?: string,
 		position?: "top" | "bottom" | "left" | "right" | "center",
-		size?: number,
+		size?: { heigth: number, width: number },
 		save?: boolean,
 		focus?: boolean,
 	}) => any,
+	createTextNode: (config: {
+		text: string,
+		pos: { x: number, y: number },
+		position?: "top" | "bottom" | "left" | "right" | "center",
+		size?: { heigth: number, width: number },
+		save?: boolean,
+		focus?: boolean,
+	}) => void,
 	requestSave: () => void,
 }
 export type CanvasNode = CanvasFileNode | CanvasTextNode

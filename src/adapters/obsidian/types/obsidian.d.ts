@@ -176,7 +176,7 @@ declare module "obsidian" {
   interface EditorSuggest<T> {
     suggestEl: HTMLElement;
   }
-	interface SectionCache extends CacheItem {
+	interface SectionCache {
 		type: 'heading' | 'list' | 'paragraph' | 'blockquote' | string;
 	}
 

@@ -1,6 +1,9 @@
 import CardNote from "main";
 import { Changes, ChangeInfo, normalizePath, LinkCache } from "obsidian";
 
+export const BLOCKIDREPLACE = /[^a-zA-Z\d-]+/g;
+export const FILENAMEREPLACE = /[!"#$%&()*+,.:;<=>?@^`{|}~/[\]\\\r\n]/g;
+
 
 export type RequiredProperties<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
 
@@ -141,7 +144,10 @@ export type Heading = {
 	headingSymbol: string,
 	title: string,
 }
-export const LIST = /(?<list>[-*]\s|(?:\d.)+\s)(?<text>.*)/
+// /^([ \t]*)([*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))([^\n]*)/
+// /(?<list>[-*]\s|(?:\d.)+\s)(?<text>.*)/
+export const LIST = /^([ \t]*)([*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))(?<item>[^\n]*)/
+export const TASK = /^([ \t]*)(?<task>\[.\])?( {1,4}(?! )| |\t|$|(?=\n))(?<item>[^\n]*)/
 export type List = {
 	type: 'list',
 	listSymbol: string,

@@ -3,6 +3,7 @@ import {
 	BlockCache,
 	CacheItem,
 	HeadingCache,
+	LinkCache,
 	MarkdownView,
 	Plugin,
 	PluginSettingTab,
@@ -97,21 +98,26 @@ export default class CardNote extends Plugin {
 				// selection is canvas node not the json canvas node data,
 				// so property type = 'file' | 'text' | 'group' is in the unknownData property
 				//const file = selectNode?.file as TFile | undefined;
-				return selectNode && isCanvasFileNode(selectNode) ? selectNode : undefined
+				return selectNode && isCanvasFileNode(selectNode)
+					? { fileEditor: selectNode, offset: selectNode.child.before.length }
+					: undefined
 			}
 			if (isExcalidrawView(view)) {
 				// 	this.app.workspace.activeEditor
-				const embeddable = view.getActiveEmbeddable()
-				return embeddable?.node && isCanvasFileNode(embeddable.node) ? embeddable.node : undefined
+				const embeddable = view.getActiveEmbeddable(),
+					before = embeddable?.node?.child.before as string ?? '';
+
+				return embeddable?.node && isCanvasFileNode(embeddable.node)
+					? { fileEditor: embeddable.node, offset: before.length } : undefined
 			//embeddable?.node?.file ?? (embeddable?.leaf.view instanceof MarkdownView ? embeddable.leaf.view.file : undefined)
 			// 	return
 			}
 
 		}
-		return activeEditor
+		return { fileEditor: activeEditor, offset: 0 }
 	}
 
-	async checkFileName(file: FileInfo) {
+	async checkFileName(file: FileInfo): Promise<FileInfo | Error> {
 		if (file.fileName.length === 0) {
 			return new Error("File Name can not be empty!");
 		}
@@ -124,22 +130,11 @@ export default class CardNote extends Plugin {
 		if (await this.app.vault.adapter.exists(normalFilePath)) {
 			return new Error("File exist!");
 		}
-		return file;
+		return { ...file, fileName: normalFilePath };
 	}
-	// updateBlockLink(file: TFile, from: number, to: number, newPath: (link: LinkText) => string) {
-	// 	const [blocks, headings] = this.findLinkBlocks(file, from, to);
-
-	// 	const subpath = [...blocks.map(block => `#^${block.id}`), ...headings.map(heading => `#${heading}`)];
-	// 	//split self reference and update self editor text
-	// 	const [selfLinks,outer] = this.findLinks(file, subpath);
-
-	// 	const changes = LinkToChanges(outer, newPath);
-	// 	this.app.fileManager.updateInternalLinks(changes);
-
-	// }
 	updateInternalLinks(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string) {
 		const changes = LinkToChanges(linkMap, newPath);
-		//觀察是否不更新自己以及canvas
+		//不更新canvas
 		this.app.fileManager.updateInternalLinks(changes);
 	}
 	renameCanvasSubpath(origin: LinkFilePath, newFile: LinkFilePath) {
@@ -177,7 +172,8 @@ export default class CardNote extends Plugin {
 	}
 	updateCanvasLinks(
 		canvasPathSet: string[],
-		map: (node: CanvasFileData) => CanvasFileData) {
+		map: (node: CanvasFileData) => CanvasFileData
+	) {
 		const result = canvasPathSet.map(canvasPath => this.updateCanvasNodes(canvasPath, node => {
 			if (node.type === 'file') {
 				return map(node)
@@ -185,12 +181,6 @@ export default class CardNote extends Plugin {
 			return node
 		}))
 		return Promise.all(result)
-	// return this.updateCanvasNodes(queue, node => {
-	// 	if (node.type === 'file' && findNode(node)) {
-	// 		return map(node)
-	// 	}
-	// 	return node
-	// })
 	}
 	findLinkBlocks(file: TFile, from: number, to: number): [BlockCache[], HeadingCache[]] {
 		const cache = this.app.metadataCache.getFileCache(file);
@@ -210,43 +200,41 @@ export default class CardNote extends Plugin {
 		const headingInRange: HeadingCache[] = cache?.headings?.filter(inRange) ?? [];
 		return [blocksInRange, headingInRange]
 	}
-	findLinks(targetFile: TFile, subpath: string[], match: (link: LinkPath) => boolean): [LinkInfo[] | undefined, Map<string, LinkInfo[]>] {
+	createLinkInfo(cache: LinkCache): LinkInfo {
+		const normalizeLink = cache.link.replace(/\u00A0/, '').normalize();
+		const path = normalizeLink.split('#')[0];
+		const subpath = normalizeLink.substring(path.length);
+		return {
+			path,
+			subpath,
+			link: cache,
+		}
+	}
+	findLinks(targetFile: TFile, match: (link: LinkPath) => boolean): [LinkInfo[] | undefined, Map<string, LinkInfo[]>] {
 		const cache = this.app.metadataCache;
 		const fileManger = this.app.fileManager;
 		const linkMap = new Map<string, LinkInfo[]>();
-		fileManger.iterateAllRefs((fileName, linkInfo) => {
+		fileManger.iterateAllRefs((fileName, linkCache) => {
 			fileName.normalize()
 			//sourcePath = 來源檔名
 			//linkPath = link target (file Name)
-			const normalizeLink = linkInfo.link.replace(/\u00A0/, '').normalize();
-			const path = normalizeLink.split('#')[0];
-			const linkSubpath = normalizeLink.substring(path.length);
-			//getfirstlinkpathdest: 得到來源檔名中此link path連結到哪個file
-			if (match({ path, subpath: linkSubpath, file: cache.getFirstLinkpathDest(path, fileName) ?? undefined })) {
+			const linkInfo = this.createLinkInfo(linkCache);
+			const { path, subpath } = linkInfo;
+			//getFirstLinkpathDest: 得到來源檔名中此link path連結到哪個file
+			if (match({ path, subpath, file: cache.getFirstLinkpathDest(path, fileName) ?? undefined })) {
 				const links = linkMap.get(fileName);
-				const linkText: LinkInfo = { path, subpath: linkSubpath, link: linkInfo };
 				if (links) {
-					links.push(linkText);
+					links.push(linkInfo);
 				}
 				else {
-					linkMap.set(fileName, [linkText]);
+					linkMap.set(fileName, [linkInfo]);
 				}
 			}
 		})
-		// basename沒有 extension
-		// name = path 且帶有 .md extension
-		console.log("check file basename,path,name", targetFile);
 		const selfLink = linkMap.get(targetFile.path);
 		linkMap.delete(targetFile.path);
 		return [selfLink, linkMap];
 	}
-	// updateInternalHeadingLink(originFile: TFile, oldHeading: HeadingCache, newFile: TFile, newHeadingName: string) {
-	// 	const cache = this.app.metadataCache;
-	// 	const fileManger = this.app.fileManager;
-	// 	fileManger.iterateAllRefs((fileName, link) => {
-
-	// 	})
-	// }
 }
 // heading regex?
 // var Vx = /[!"#$%&()*+,.:;<=>?@^`{|}~\/\[\]\\\r\n]/g
@@ -254,6 +242,20 @@ export default class CardNote extends Plugin {
 
 // match link regex
 // /^(!?\[\[)(.*?)(\|(.*))?(]])$/
+
+// list regex?
+// /^\s*[*\-+]\s$/
+
+
+
+// var c = " "
+// 	, u = "\n"
+// 	, h = "\t"
+// 	, p = /\n\n(?!\s*$)/
+// 	, d = /^\[(.)][ \t]/
+// 	, f = /^([ \t]*)([*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))([^\n]*)/
+// 	, m = /^([ \t]*)([*+-]|\d+[.)])([ \t]+)/
+// 	, g = /^( {1,4}|\t)?/gm;
 class CardNoteTab extends PluginSettingTab {
 	plugin: CardNote;
 
@@ -314,9 +316,3 @@ class CardNoteTab extends PluginSettingTab {
 	}
 }
 
-//metadataCache.getLinkpathDest(a,e)
-//vault.getAbstractFileByPath(e) filepath with extension(CanvasName.canvas)
-//const canveses = canvas.index.getAll()
-// canvases[canvas name].caches ... ('cache13kj2;3:{},embeds:{file:,subpath}[])
-//updateRelatedLinks
-//vault.process(file,f)

@@ -1,8 +1,9 @@
 import { Editor, WorkspaceLeaf } from 'obsidian';
 import { ExcalidrawElement, ExcalidrawImperativeAPI } from '..';
 import { ObsidianCanvasNode } from 'obsidian-excalidraw-plugin/lib/utils/CanvasNodeFactory';
-import ExcalidrawView from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
+import { default as BaseView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 import { ExcalidrawData } from 'obsidian-excalidraw-plugin/lib/ExcalidrawData';
+
 //import ExcalidrawView from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 
 export type ObsidianMarkdownEmbeded = {
@@ -22,20 +23,28 @@ declare module "obsidian-excalidraw-plugin/lib/ExcalidrawAutomate" {
 	}
 }
 declare module 'obsidian-excalidraw-plugin/lib/ExcalidrawView' {
-	interface ExcalidrawView {
+	interface ExcalidrawView extends Omit<BaseView, 'embeddableLeafRefs'> {
 		currentPosition: { x: number, y: number };
 		excalidrawAPI: ExcalidrawImperativeAPI;
 		editor: Editor;
 		excalidrawData: ExcalidrawData;
 		embeddableLeafRefs: Map<string, unknown>;
 		getActiveEmbeddable(): ObsidianMarkdownEmbeded | null;
-		setDirty: (debug?: number) => void;
+		//setDirty: (debug?: number) => void;
 		updateScene: (scene: {
 			elements?: ExcalidrawElement[];
 			appState?: any;
 			files?: any;
 			commitToHistory?: boolean;
-		}, shouldRestore?: boolean) => void
+		}, shouldRestore?: boolean) => void;
+		addElements: (
+			newElements: ExcalidrawElement[],
+			repositionToCursor?: boolean,
+			save?: boolean,
+			images?: any,
+			newElementsOnTop?: boolean,
+			shouldRestoreElements?: boolean,
+		) => Promise<boolean>
 	}
 }
 

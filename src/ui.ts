@@ -1,6 +1,6 @@
-import { App, BlockCache, Modal, Setting, debounce } from "obsidian";
-import { BaseReferenceSection, Section } from "src/dragUpdate"
-import { FileInfo } from "src/utility";
+import { App, BlockCache, Modal, Setting, TFile, debounce } from "obsidian";
+import { BaseReferenceSection, Section, isHeadingBlock, isNamedBlock } from "src/dragUpdate"
+import { BLOCKIDREPLACE, FileInfo, FILENAMEREPLACE } from "src/utility";
 
 
 export type CreateFile = {
@@ -13,15 +13,10 @@ export type LinkToReference = {
 	section: BaseReferenceSection,
 }
 type Cut = {
-	type: 'cut'
+	type: 'cut',
 }
-export type BaseAction = CreateFile | LinkToReference | Cut
-export type UserAction = BaseAction & { newName: Promise<string> } | Type<'cancel'>
-type Type<T extends string> = {
-	type: T,
-}
-
-type Cancel = undefined;
+export type BaseAction = (CreateFile | LinkToReference) & { newName: Promise<string> } | Cut
+export type UserAction = BaseAction | { type: 'cancel' }
 
 export type FileNameModelConfig = {
 	app: App,
@@ -30,27 +25,27 @@ export type FileNameModelConfig = {
 	// onCreateFile: (newFileName: string) => void,
 	// onLinkToReference: (newSectionName: string, section: Section) => void,
 	// onCut: () => void,
-	onSubmit: (action: UserAction) => void,
+	onSubmit: (action: UserAction, userInput?: string) => void,
 	errorMessage?: string,
 
 }
 export class FileNameCheckModal extends Modal {
 	defaultName: string;
-	newName: Promise<string>;
+	//newName: Promise<string>;
 	section: Section;
 	// onCreateFile: (newFileName: string) => void;
 	// onLinkToReference: (newSectionName: string, section: Section) => void;
 	// onCut: () => void;
-	onSubmit: (action: UserAction) => void;
+	onSubmit: (action: UserAction, userInput?: string) => void;
 	errorMessage?: string
-	test: string;
+	userInput: string;
 
 	constructor(
 		config: FileNameModelConfig
 	) {
 		super(config.app);
 		this.defaultName = config.name;
-		this.newName = Promise.resolve(config.name);
+		//this.newName = Promise.resolve(config.name);
 		this.section = config.section;
 		// this.onCreateFile = config.onCreateFile;
 		// this.onLinkToReference = config.onLinkToReference;
@@ -63,22 +58,35 @@ export class FileNameCheckModal extends Modal {
 		// 	this.newName = Promise.resolve(value);
 		// 	setting.setDesc(getNameDesc(await this.newName));
 		// }
-		const handleTextChange = this.debounce((value: string, setting: Setting) => {
-			//regex value
-			this.trySetDescription(setting, this.getNameDesc(value));
-			return value
-		}, 0.3)
-		// const deb = debounce((value: string, setting: Setting) => {
+		const validFileName = this.parseToValidFile(this.defaultName),
+			validBlockName = this.parseToValidBlockName(this.defaultName);
 
-		// })
+		let validNewFileName = Promise.resolve(validFileName),
+			validNewBlockName = Promise.resolve(validBlockName);
+
+		const handleTextChange = this.debounce((value: string, setting: Setting) => {
+			let blockName: string | undefined;
+			//regex value
+			const fileName = this.parseToValidFile(value);
+			if (this.section.type === 'reference') {
+				blockName = this.parseToValidBlockName(value);
+			}
+			this.trySetDescription(setting, this.getNameDesc(fileName, blockName));
+			return { fileName, blockName }
+		}, 0.3)
+
 		const { contentEl } = this;
 		const nameSetting = new Setting(contentEl)
 			//.setName("New Name")
-			.setDesc(this.getNameDesc(this.defaultName))
+			.setDesc(this.getNameDesc(validFileName, validBlockName))
             .addText(text => {
 				text.setValue(this.defaultName ?? "");
 				text.onChange(value => {
-					this.newName = handleTextChange(value, nameSetting);
+
+					this.userInput = value;
+					const newName = handleTextChange(value, nameSetting);
+					validNewFileName = newName.then(data => data.fileName);
+					validNewBlockName = newName.then(data => data.blockName);
 					// this.newName = Promise.resolve(value);
 					// this.test = value;
 					// nameSetting.setDesc(this.test);
@@ -90,7 +98,7 @@ export class FileNameCheckModal extends Modal {
 					.setTooltip('Create file')
 					.setCta()
 					.onClick(() => {
-						this.onSubmit({ type: 'createFile', newName: this.newName });
+						this.onSubmit({ type: 'createFile', newName: validNewFileName }, this.userInput);
 						this.close();
 					})
 			})
@@ -104,8 +112,8 @@ export class FileNameCheckModal extends Modal {
 						this.onSubmit({
 							type: 'linkToReference',
 							section,
-							newName: this.newName,
-						});
+							newName: validNewBlockName.then(data => data ?? ''),
+						}, this.userInput);
 						this.close();
 					})
 			})
@@ -115,7 +123,7 @@ export class FileNameCheckModal extends Modal {
 				.setTooltip('Cut')
 				.setCta()
 				.onClick(() => {
-					this.onSubmit({ type: 'cut', newName: this.newName });
+					this.onSubmit({ type: 'cut' }, this.userInput);
 					this.close();
 				})
 		}).addButton(btn => {
@@ -136,16 +144,18 @@ export class FileNameCheckModal extends Modal {
         const { contentEl } = this;
 		contentEl.empty();
 	}
-	getNameDesc = (name: string): DocumentFragment => {
+	getNameDesc = (fileName: string, blockName?: string): DocumentFragment => {
 		const frag = document.createDocumentFragment()
-		frag.createDiv().innerText = `Create file ${name}`;
-		frag.createDiv().innerText = `or`;
-		frag.createDiv().innerText = `Link to block ${name}`;
+		frag.createDiv().innerText = `Create file ${fileName}`;
+		if (blockName) {
+			frag.createDiv().innerText = `or`;
+			frag.createDiv().innerText = `Link to block ${fileName}`;
+		}
 		return frag
 	}
 	trySetDescription(setting: Setting, desc: string | DocumentFragment): void {
 		try {
-			setting?.setDesc(desc); debounce
+			setting?.setDesc(desc); //debounce
 		} catch (e) {
 			console.log("expect set description before closing Modal", e);
 		}
@@ -160,6 +170,17 @@ export class FileNameCheckModal extends Modal {
 					resolve(res)
 				}, sec * 1000);
 			})
+		}
+	}
+	parseToValidFile(text: string) {
+		return text.replace(FILENAMEREPLACE, '')
+	}
+	parseToValidBlockName(text: string) {
+		if (this.section.type === 'reference') {
+			const block = this.section.block;
+			return isHeadingBlock(block)
+				? text
+				: text.replace(BLOCKIDREPLACE, '')
 		}
 	}
 }
