@@ -15,7 +15,7 @@ export type LinkToReference = {
 type Cut = {
 	type: 'cut',
 }
-export type BaseAction = (CreateFile | LinkToReference) & { newName: Promise<string> } | Cut
+export type BaseAction = (CreateFile | LinkToReference) & { newName: string } | Cut
 export type UserAction = BaseAction | { type: 'cancel' }
 
 export type FileNameModelConfig = {
@@ -25,18 +25,17 @@ export type FileNameModelConfig = {
 	// onCreateFile: (newFileName: string) => void,
 	// onLinkToReference: (newSectionName: string, section: Section) => void,
 	// onCut: () => void,
-	onSubmit: (action: UserAction, userInput?: string) => void,
+	onSubmit: (action: UserAction) => void,
 	errorMessage?: string,
 
 }
 export class FileNameCheckModal extends Modal {
-	defaultName: string;
 	//newName: Promise<string>;
 	section: Section;
 	// onCreateFile: (newFileName: string) => void;
 	// onLinkToReference: (newSectionName: string, section: Section) => void;
 	// onCut: () => void;
-	onSubmit: (action: UserAction, userInput?: string) => void;
+	onSubmit: (action: UserAction) => void;
 	errorMessage?: string
 	userInput: string;
 
@@ -44,7 +43,7 @@ export class FileNameCheckModal extends Modal {
 		config: FileNameModelConfig
 	) {
 		super(config.app);
-		this.defaultName = config.name;
+		this.userInput = config.name;
 		//this.newName = Promise.resolve(config.name);
 		this.section = config.section;
 		// this.onCreateFile = config.onCreateFile;
@@ -58,35 +57,41 @@ export class FileNameCheckModal extends Modal {
 		// 	this.newName = Promise.resolve(value);
 		// 	setting.setDesc(getNameDesc(await this.newName));
 		// }
-		const validFileName = this.parseToValidFile(this.defaultName),
-			validBlockName = this.parseToValidBlockName(this.defaultName);
 
-		let validNewFileName = Promise.resolve(validFileName),
-			validNewBlockName = Promise.resolve(validBlockName);
+		// const validFileName = this.parseToValidFile(this.defaultName),
+		// 	validBlockName = this.parseToValidBlockName(this.defaultName);
 
-		const handleTextChange = this.debounce((value: string, setting: Setting) => {
-			let blockName: string | undefined;
-			//regex value
-			const fileName = this.parseToValidFile(value);
-			if (this.section.type === 'reference') {
-				blockName = this.parseToValidBlockName(value);
-			}
-			this.trySetDescription(setting, this.getNameDesc(fileName, blockName));
-			return { fileName, blockName }
-		}, 0.3)
+		// let validNewFileName = Promise.resolve(validFileName),
+		// 	validNewBlockName = Promise.resolve(validBlockName);
+
+		// const handleTextChange = this.debounce((value: string, setting: Setting) => {
+		// 	let blockName: string | undefined;
+		// 	//regex value
+		// 	const fileName = this.parseToValidFile(value);
+		// 	if (this.section.type === 'reference') {
+		// 		blockName = this.parseToValidBlockName(value);
+		// 	}
+		// 	this.trySetDescription(setting, this.getNameDesc(fileName, blockName));
+		// 	return { fileName, blockName }
+		// }, 0.3)
+		const linkReferenceDescription = this.section.type === 'reference'
+			? isHeadingBlock(this.section.block)
+				? ' or link to heading' : ' or link to block'
+			: '';
 
 		const { contentEl } = this;
 		const nameSetting = new Setting(contentEl)
 			//.setName("New Name")
-			.setDesc(this.getNameDesc(validFileName, validBlockName))
-            .addText(text => {
-				text.setValue(this.defaultName ?? "");
+			.setDesc(`Create file${linkReferenceDescription}`)
+			.addText(text => {
+				text.setValue(this.userInput ?? "");
 				text.onChange(value => {
 
 					this.userInput = value;
-					const newName = handleTextChange(value, nameSetting);
-					validNewFileName = newName.then(data => data.fileName);
-					validNewBlockName = newName.then(data => data.blockName);
+					// const newName = handleTextChange(value, nameSetting);
+					// validNewFileName = newName.then(data => data.fileName);
+					// validNewBlockName = newName.then(data => data.blockName);
+
 					// this.newName = Promise.resolve(value);
 					// this.test = value;
 					// nameSetting.setDesc(this.test);
@@ -98,7 +103,7 @@ export class FileNameCheckModal extends Modal {
 					.setTooltip('Create file')
 					.setCta()
 					.onClick(() => {
-						this.onSubmit({ type: 'createFile', newName: validNewFileName }, this.userInput);
+						this.onSubmit({ type: 'createFile', newName: this.userInput.trimEnd() });
 						this.close();
 					})
 			})
@@ -112,8 +117,8 @@ export class FileNameCheckModal extends Modal {
 						this.onSubmit({
 							type: 'linkToReference',
 							section,
-							newName: validNewBlockName.then(data => data ?? ''),
-						}, this.userInput);
+							newName: this.userInput.trimEnd()
+						});
 						this.close();
 					})
 			})
@@ -123,7 +128,7 @@ export class FileNameCheckModal extends Modal {
 				.setTooltip('Cut')
 				.setCta()
 				.onClick(() => {
-					this.onSubmit({ type: 'cut' }, this.userInput);
+					this.onSubmit({ type: 'cut' });
 					this.close();
 				})
 		}).addButton(btn => {
@@ -173,14 +178,14 @@ export class FileNameCheckModal extends Modal {
 		}
 	}
 	parseToValidFile(text: string) {
-		return text.replace(FILENAMEREPLACE, '')
+		return text.replace(FILENAMEREPLACE(), '')
 	}
 	parseToValidBlockName(text: string) {
 		if (this.section.type === 'reference') {
 			const block = this.section.block;
 			return isHeadingBlock(block)
 				? text
-				: text.replace(BLOCKIDREPLACE, '')
+				: text.replace(BLOCKIDREPLACE(), '')
 		}
 	}
 }

@@ -2,10 +2,10 @@ import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language";
-import { Break, ReCheck, createDefaultFileName, createFullPath, FileInfo, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties } from "src/utility";
-import { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, MarkdownRenderer, Plugin, SectionCache, TFile } from "obsidian";
-import { BaseAction, CreateFile, FileNameCheckModal, FileNameModelConfig, LinkToReference, UserAction } from "src/ui";
-import { createTextOnDrawing, getEA, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView, isObsidianMarkdownEmbeded } from "src/adapters/obsidian-excalidraw-plugin";
+import { Break, ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties, BLOCKIDREPLACE, HEADINGREPLACE, listItemParser } from "src/utility";
+import { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, MarkdownRenderer, SectionCache, TFile } from "obsidian";
+import { BaseAction, FileNameCheckModal, FileNameModelConfig, UserAction } from "src/ui";
+import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView, isObsidianMarkdownEmbeded } from "src/adapters/obsidian-excalidraw-plugin";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
@@ -79,21 +79,8 @@ export type LazyReferenceSection = {
 export type UnReferenceSection = {
 	type: 'unreference'
 }
-export type Section = (BaseReferenceSection | LazyReferenceSection | UnReferenceSection) & {
-	// typse: 'referenceable' | 'unreferenceable',
-	content?: string
-}
+export type Section = (BaseReferenceSection | LazyReferenceSection | UnReferenceSection) //& {
 
-type CreatNewFile = CreateFile & {
-	newFile: TFile
-}
-type LinkToFile = LinkToReference & {
-	sourceFile: TFile,
-	subpath: string,
-}
-type Action = (CreatNewFile | LinkToFile) & {
-	newName: Promise<string>
-};
 export type LinkPath = {
 	path: string,
 	// #^...
@@ -106,24 +93,16 @@ export type LinkPath = {
 
 export type LinkFilePath = RequiredProperties<LinkPath, 'file'>
 
-type NameBlock = { id: string } & CacheItem;
-
-function isRerenceBlock(cache: CacheItem & { id?: string }): cache is NameBlock {
-	return cache.id !== undefined;
-}
 export function isNamedBlock(block: Block): block is NamedBlock {
 	return 'name' in block && block.name !== undefined;
 }
 export function isHeadingBlock(block: Block): block is HeadingBlcok {
 	return 'type' in block && block.type === 'heading';
 }
-function isSpecialBlock(block: Block): block is NamedBlock {
-	return 'type' in block
-		&& (block.type === 'heading'
-			|| block.type === 'list'
-			|| block.type === 'linkBlock');
-
+export function isListBlock(block: Block): block is ListBlock {
+	return 'type' in block && block.type === 'list';
 }
+
 function getSelectOffset(select: FoldableLine | OneLine | SingleSelection) {
 	if (select.type === 'line' && select.section?.type === 'reference') {
 		const pos = select.section.block.cache.position;
@@ -155,69 +134,67 @@ function getLinkBlocks(select: UserSelection, file: TFile | null | undefined, pl
 		return plugin.findLinkBlocks(file, from, to);
 	}
 }
-function selected(select: Selection, section: SectionCache) {
-	return (section.position.start.offset > select.from && section.position.end.offset < select.to)
-		|| (section.type === 'list');
-}
-function getListDefaultName(block: ListBlock) {
-	return block.cache.id ?? 'list parser';
-}
-function getDefaultName(section: Section) {
-	if (section.type === 'reference') {
-		const block = section.block;
-		if (isSpecialBlock(block)) {
-			return block.type === 'heading'
-				? block.cache.heading
-				: block.type === 'linkBlock'
-					? block.name
-					: getListDefaultName(block);
-		}
-	}
-}
+
 
 type ReNameConfig = Omit<FileNameModelConfig, "onSubmit">;
 
 async function userAction(plugin: CardNote, section: Section, selected: UserSelection) {
 	const folderPath = plugin.settings.defaultFolder;
 	const getUserRename = (config: ReNameConfig) => {
-		return new Promise<(UserAction & { userInput?: string }) | Break>(resolve => {
-			const onSubmit = (action: UserAction, userInput: string) => {
-				resolve({ ...action, userInput: userInput });
+		return new Promise<(UserAction) | Break>(resolve => {
+			const onSubmit = (action: UserAction) => {
+				resolve({ ...action });
 			};
 			new FileNameCheckModal({ ...config, onSubmit })
 				.open();
 		});
 	};
-	const provide = async (arg: ReNameConfig, unvalid: (UserAction & { userInput: string }) | undefined, error: string) => {
+	const provide = async (arg: ReNameConfig, unvalid: UserAction | undefined, error: string) => {
 		if (unvalid?.type !== 'cancel' && unvalid?.type !== 'cut') {
-			const newName = await unvalid?.newName;
+			const newName = unvalid?.newName;
 			const name = newName && newName.length !== 0 ? newName : arg.name;
 			return getUserRename({ ...arg, name, errorMessage: error });
 		}
 	};
 	const check = async (value: UserAction): Promise<Required<UserAction> | Error> => {
 		if (value.type !== 'cancel' && value.type !== 'cut') {
-			const newName = await value.newName;
+			const newName = value.newName;
 			if (value.type === 'createFile') {
 				const file = await plugin.checkFileName({ folderPath, fileName: newName, extension: MarkdownFileExtension });
 				return file instanceof Error ? file : { ...value, file };
 			}
 			if (value.type === 'linkToReference') {
-				const checkValue = newName.trim().length === 0
-					? new Error('Empty name!!') : value;
-				return checkValue;
+				const findUnvalidBlockSymbol = () => BLOCKIDREPLACE().exec(value.newName);
+				//? new Error('Block id noly accept alphanumeric and -') : value;
+				return isHeadingBlock(value.section.block)
+					? value
+					: findUnvalidBlockSymbol()
+						? new Error('Block id only accept alphanumeric and -')
+						: value;
 			}
 		}
 		return value;
 	};
 	const action = await ReCheck<ReNameConfig, UserAction, Required<UserAction>>({
 		create() {
-			//"if not referencalbe ,extract from content";
-			const defulatName = getDefaultName(section) ?? selected.content.split(LINEBREAK, 1)[0].substring(0, 20).trim();
+			//"if not referenceable ,extract from content";
+			const getDefault = () => {
+				return selected.content.split(LINEBREAK, 1)[0].substring(0, 20).trim();
+			};
+
+			const defulatName =
+				section.type === 'reference'
+					? isNamedBlock(section.block)
+						? section.block.name
+						: isListBlock(section.block)
+							? listItemParser(selected.content)?.item
+							: getDefault()
+					: getDefault();
+
 			return {
 				app: plugin.app,
 				section,
-				name: defulatName,
+				name: defulatName ?? "",
 			};
 		},
 		update(prev) {
@@ -533,39 +510,51 @@ async function extractSelect(
 	else if (action.type === 'linkToReference') {
 		const block = action.section.block,
 			sourceFile = action.section.file;
-		const name = await action.newName;
+		const name = action.newName;
 
-		const subpathPrevSymbol = isSpecialBlock(action.section.block)
-			&& action.section.block.type === 'heading' ? '#' : '#^';
-		const subpath = subpathPrevSymbol + name;
-		const old = isNamedBlock(block) && block.name !== name ? block : undefined;
-		const newPath = plugin.createLinkText(sourceFile, subpath);
+		const subpath = isHeadingBlock(action.section.block)
+			? {
+				symbol: '#',
+				path: plugin.normalizeHeadingToLinkText(name),
+			}
+			: {
+				symbol: '#^',
+				path: name,
+			}
+
+		const oldBlock = isNamedBlock(block) ? block : undefined;
+
+		const newPath = plugin.createLinkText(sourceFile, subpath.symbol + subpath.path);
 		target = newPath;
-		//is rename
-		if (old) {
-			const oldName = old.name,
-				subpathText = old.type === 'heading' ? name : `^${name}`,
-				subpath = '#' + subpathText,
+
+		if (oldBlock) {
+			const reName = () => oldBlock.name !== name;
+			if (reName()) {
+				const oldName = oldBlock.name,
 				from = block.cache.position.end.offset - oldName.length,
 				to = block.cache.position.end.offset;
-			updateInternalLinks(
-				sourceFile,
-				old => ({ path: old.path, subpath, file: sourceFile }),
-				link => (link.path === sourceFile.path || link.file === sourceFile)
+				updateInternalLinks(
+					sourceFile,
+					old => ({
+						path: old.path,
+						subpath: plugin.replaceSpaceInLinkText(newPath.subpath ?? ""),
+						file: sourceFile
+					}),
+					link => (link.path === sourceFile.path || link.file === sourceFile)
 					&& link.subpath !== undefined
-					&& link.subpath === subpath
-				,
-				[sourceFile]
-			)
-			//replace old name
-			const trans = view.state.update({
-				changes: { from, to, insert: name }
-			});
-			view.dispatch(trans);
+						&& link.subpath === newPath.subpath
+					,
+					[sourceFile]
+				)
+				//replace old name
+				const trans = view.state.update({
+					changes: { from, to, insert: subpath.path }
+				});
+				view.dispatch(trans);
+			}
 		}
-		//edit current editor
-		//update internal links
 		else {
+			//insert new block name
 			const insertNamePosition = block.cache.position.end.offset;
 			const trans = view.state.update({
 				changes: { from: insertNamePosition, insert: ' ^' + name }
@@ -625,8 +614,6 @@ export const dragExtension = (plugin: CardNote) => {
 			const target = locate.children.find(child => child.tabHeaderEl.className.contains("active"));
 			const drawView = target?.view;
 			if (isExcalidrawView(drawView)) {
-				// const ea = getEA();
-				// const eaView = ea.setView(view);
 				createFileAndDraw(
 					drawView,
 					(target) => {
@@ -672,14 +659,6 @@ export const dragExtension = (plugin: CardNote) => {
 				createFileAndDraw(
 					drawView,
 					(target) => {
-					// const file = action.type === 'createFile' ? action.newFile : action.sourceFile;
-					// const subpath = action.type === 'linkToReference' ? action.subpath : undefined;
-					// drawView.canvas.createFileNode({
-					// 	file: file,
-					// 	pos,
-					// 	subpath,
-					// 	save: true
-					// });
 					if (typeof (target) !== 'string') {
 					drawView.canvas.createFileNode({
 						file: target.file,

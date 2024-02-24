@@ -1,9 +1,11 @@
 import CardNote from "main";
 import { Changes, ChangeInfo, normalizePath, LinkCache } from "obsidian";
 
-export const BLOCKIDREPLACE = /[^a-zA-Z\d-]+/g;
-export const FILENAMEREPLACE = /[!"#$%&()*+,.:;<=>?@^`{|}~/[\]\\\r\n]/g;
 
+
+export const BLOCKIDREPLACE = () => /[^a-zA-Z\d-]+/g;
+export const FILENAMEREPLACE = () => /[!"#$%&()*+,.:;<=>?@^`{|}~/[\]\\\r\n]/g;
+export const HEADINGREPLACE = () => /([:#|^\\\r\n]|%%|\[\[|]])/g
 
 export type RequiredProperties<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
 
@@ -138,20 +140,23 @@ export async function createDefaultFileName(plugin: CardNote, content: string) {
 	return await createRandomFileName() as FileInfo;
 }
 
-export const HEADING = /^(?<header>#{1,6}\s)(?<title>.*)/;
+export const HEADING = () => /^(?<header>#{1,6}\s)(?<title>.*)/;
 export type Heading = {
 	type: 'heading'
 	headingSymbol: string,
 	title: string,
 }
-// /^([ \t]*)([*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))([^\n]*)/
-// /(?<list>[-*]\s|(?:\d.)+\s)(?<text>.*)/
-export const LIST = /^([ \t]*)([*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))(?<item>[^\n]*)/
+
+export const LIST = /^([ \t]*)(?<listSymbol>[*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))(?<item>[^\n]*)/
 export const TASK = /^([ \t]*)(?<task>\[.\])?( {1,4}(?! )| |\t|$|(?=\n))(?<item>[^\n]*)/
-export type List = {
+export type ListItem = {
 	type: 'list',
 	listSymbol: string,
-	title: string,
+	item: string,
+}
+export type TaskItem = Omit<ListItem, 'type'> & {
+	type: 'task',
+	task: string
 }
 export type Text = {
 	type: 'text'
@@ -163,8 +168,39 @@ export type TextWithSymbol = {
 	title: string,
 }
 export type MarkdownSyntax = TextWithSymbol | Text;
+export function listItemParser(text: string): ListItem | TaskItem | undefined {
+	const match = LIST.exec(text);
+	if (match) {
+		const groups = match.groups,
+			listSymbol = groups?.listSymbol,
+			item = groups?.item;
+		if (item) {
+			const taskMatch = TASK.exec(item),
+				taskGroups = taskMatch?.groups,
+				task = taskGroups?.task,
+				taskItem = taskGroups?.item;
+			return task ? {
+				type: 'task',
+				listSymbol: listSymbol!,
+				task: task,
+				item: taskItem ?? '',
+			} : {
+				type: 'list',
+				listSymbol: listSymbol!,
+				item,
+			}
+		}
+		else {
+			return {
+				type: 'list',
+				listSymbol: listSymbol!,
+				item: '',
+			}
+		}
+	}
+}
 export function markdownParser(content: string): MarkdownSyntax {
-	const headingMatch = HEADING.exec(content);
+	const headingMatch = HEADING().exec(content);
 	if (headingMatch?.groups) {
 		return {
 			type: 'heading',
@@ -198,21 +234,20 @@ export type LinkText = Partial<{
 }> & {
 	text: string
 }
-// /^(!?\[\[)(.*?)(\|(.*))?(]])$/
-const WIKILINK = /^(?<left>!?\[\[)(?<link>.*?)(?<display>\|(?<displayText>.*))?(?<right>]])$/;
-// /^(!?\[)(.*?)(]\(\s*)[^ ]+((?:\s+.*?)?\))$/
-const MARKDOWNLINK = /^(?<left>!?\[)(?<displayText>.*?)(?<mid>]\(\s*)(?<link>[^ ]+)(?<right>(?:\s+.*?)?\))$/;
+
+const WIKILINK = () => new RegExp(/^(?<left>!?\[\[)(?<link>.*?)(?<display>\|(?<displayText>.*))?(?<right>]])$/);
+const MARKDOWNLINK = () => /^(?<left>!?\[)(?<displayText>.*?)(?<mid>]\(\s*)(?<link>[^ ]+)(?<right>(?:\s+.*?)?\))$/;
 export function UpdateLinkText(sourcePath: string, linkInfo: LinkInfo, newPath: (link: LinkInfo) => string): ChangeInfo {
 	const linkMatch: { regex: RegExp, newText: (match: RegExpExecArray, path: string) => string }[] = [
 		{
-			regex: WIKILINK,
+			regex: WIKILINK(),
 			newText: (match, path) => {
 				const display = match.groups?.display ?? "";
 				return `${match.groups?.left}${path}${display}${match.groups?.right}`
 			}
 		},
 		{
-			regex: MARKDOWNLINK,
+			regex: MARKDOWNLINK(),
 			newText(match, path) {
 				const display = match.groups?.displayText ?? "";
 				return `${match.groups?.left}${display}${match.groups?.mid}${path}${match.groups?.right}`
@@ -236,24 +271,7 @@ export function UpdateLinkText(sourcePath: string, linkInfo: LinkInfo, newPath: 
 		reference: linkInfo.link,
 		sourcePath,
 	}
-	//const wikiMatch = WIKILINK.exec(linkInfo.link.original);
-	// let newText = "";
-	// if (wikiMatch) {
-	// 	const np = newPath(linkInfo);
-	// 	const display = wikiMatch.groups?.display ?? "";
-	// 	newText = `${wikiMatch.groups?.left}${np}${display}${wikiMatch.groups?.right}`;
-	// }
-	// const markdownMatch = MARKDOWNLINK.exec(linkInfo.link.original);
-	// if (markdownMatch) {
-	// 	const np = newPath(linkInfo);
-	// 	const display = wikiMatch?.groups?.displayText ?? "";
-	// 	newText = ``
-	// }
-	// return {
-	// 	change: newText,
-	// 	reference: linkInfo.link,
-	// 	sourcePath,
-	// }
+
 }
 export function LinkToChanges(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string): Changes {
 	const change: Changes = {

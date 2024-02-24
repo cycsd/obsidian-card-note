@@ -4,7 +4,6 @@ import {
 	CacheItem,
 	HeadingCache,
 	LinkCache,
-	MarkdownView,
 	Plugin,
 	PluginSettingTab,
 	Setting,
@@ -14,7 +13,7 @@ import {
 } from "obsidian";
 import { LinkFilePath, LinkPath, dragExtension } from "src/dragUpdate";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
-import { FileInfo, LinkInfo, LinkToChanges, RequiredProperties, createFullPath, isBreak } from "src/utility";
+import { FILENAMEREPLACE, FileInfo, HEADINGREPLACE, LinkInfo, LinkToChanges, RequiredProperties, createFullPath } from "src/utility";
 import { CanvasData, CanvasFileData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 
@@ -69,8 +68,8 @@ export default class CardNote extends Plugin {
 		const fullLinkPath = `${fileLinkPath}${sub}`
 		const useMarkdownLink = this.app.vault.getConfig("useMarkdownLinks");
 		const markdownLink = () => {
-			const display = displayText ?? file;
-			return `[${display}](${fullLinkPath})`;
+			const display = displayText ?? fullLinkPath;
+			return `[${display}](${fullLinkPath.replace(' ', '%20')})`;
 		}
 		const wikiLink = () => {
 			const display = displayText ? `|${displayText}` : '';
@@ -118,11 +117,18 @@ export default class CardNote extends Plugin {
 	}
 
 	async checkFileName(file: FileInfo): Promise<FileInfo | Error> {
-		if (file.fileName.length === 0) {
+		const fileName = file.fileName;
+		if (fileName.length === 0) {
 			return new Error("File Name can not be empty!");
 		}
-		if (file.fileName.endsWith(" ")) {
+		else if (fileName.endsWith(" ")) {
 			return new Error("File Name can not end with white space!");
+		}
+		else {
+			const matchInvalidSymbol = FILENAMEREPLACE().exec(fileName);
+			if (matchInvalidSymbol) {
+				return new Error(`File Name can not contains symbols [!"#$%&()*+,.:;<=>?@^\`{|}~/[]\r\n]`);
+			}
 		}
 		const filePathUncheck = createFullPath(file)
 		const normalFilePath = normalizePath(filePathUncheck);
@@ -235,27 +241,20 @@ export default class CardNote extends Plugin {
 		linkMap.delete(targetFile.path);
 		return [selfLink, linkMap];
 	}
+	normalizeHeadingToLinkText(heading: string) {
+		//const useMarkdownLink = this.app.vault.getConfig("useMarkdownLinks"),
+		const path = heading.replace(HEADINGREPLACE(), ' ').replace(/\s+/g, ' ');
+
+		return path
+	}
+	replaceSpaceInLinkText(link: string) {
+		const useMarkdownLink = this.app.vault.getConfig("useMarkdownLinks");
+		return useMarkdownLink
+			? link.replace(' ', '%20')
+			: link
+	}
 }
-// heading regex?
-// var Vx = /[!"#$%&()*+,.:;<=>?@^`{|}~\/\[\]\\\r\n]/g
-// 	, zx = /([:#|^\\\r\n]|%%|\[\[|]])/g;
 
-// match link regex
-// /^(!?\[\[)(.*?)(\|(.*))?(]])$/
-
-// list regex?
-// /^\s*[*\-+]\s$/
-
-
-
-// var c = " "
-// 	, u = "\n"
-// 	, h = "\t"
-// 	, p = /\n\n(?!\s*$)/
-// 	, d = /^\[(.)][ \t]/
-// 	, f = /^([ \t]*)([*+-]|\d+[.)])( {1,4}(?! )| |\t|$|(?=\n))([^\n]*)/
-// 	, m = /^([ \t]*)([*+-]|\d+[.)])([ \t]+)/
-// 	, g = /^( {1,4}|\t)?/gm;
 class CardNoteTab extends PluginSettingTab {
 	plugin: CardNote;
 
