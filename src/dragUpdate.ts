@@ -601,7 +601,7 @@ export const dragExtension = (plugin: CardNote) => {
 							}
 							);
 							drawView.setDirty(99);
-							drawView.updateScene({ appState: { activeEmbeddable: null } });
+							drawView.updateScene({});
 
 						}
 						return {
@@ -780,8 +780,7 @@ export const dragExtension = (plugin: CardNote) => {
 			const symbol = dragSymbol.createSpan();
 			symbol.innerText = plugin.settings.dragSymbol;
 			symbol.style.fontSize = `${plugin.settings.dragSymbolSize}px`;
-			console.log("view", view);
-			console.log("detect view doc change after reference?", view.state.doc);
+
 			const { reset } = addDragStartEvent(dragSymbol, view);
 
 			dragSymbol.addEventListener("dragend", () => {
