@@ -9,6 +9,7 @@ import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteO
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
+import { syntaxTree } from "@codemirror/language";
 
 
 
@@ -103,12 +104,12 @@ export function isListBlock(block: Block): block is ListBlock {
 	return 'type' in block && block.type === 'list';
 }
 
-function getSelectOffset(select: FoldableLine | OneLine | SingleSelection) {
+function getSelectOffset(select: (FoldableLine | OneLine | SingleSelection) & { textOffset: number }) {
 	if (select.type === 'line' && select.section?.type === 'reference') {
 		const pos = select.section.block.cache.position;
 		return {
-			from: pos.start.offset,
-			to: pos.end.offset,
+			from: pos.start.offset - select.textOffset,
+			to: pos.end.offset - select.textOffset,
 		};
 	}
 	else {
@@ -119,19 +120,20 @@ function getSelectOffset(select: FoldableLine | OneLine | SingleSelection) {
 	}
 }
 
-function getLinkBlocks(select: UserSelection, file: TFile | null | undefined, plugin: CardNote): [BlockCache[], HeadingCache[]] {
+function getLinkBlocks(select: UserSelection & { textOffset: number }, file: TFile | null | undefined, plugin: CardNote): [BlockCache[], HeadingCache[]] {
+	const textOffset = select.textOffset;
 	if (!file) {
 		return [[], []];
 	}
 	else if (select.type === 'mutiple') {
-		const res = select.selections.map(sel => plugin.findLinkBlocks(file, sel.from, sel.to));
+		const res = select.selections.map(sel => plugin.findLinkBlocks(file, sel.from + textOffset, sel.to + textOffset));
 		const blocks = res.flatMap(r => r[0]);
 		const headings = res.flatMap(r => r[1]);
 		return [blocks, headings];
 	}
 	else {
 		const { from, to } = getSelectOffset(select);
-		return plugin.findLinkBlocks(file, from, to);
+		return plugin.findLinkBlocks(file, from + textOffset, to + textOffset);
 	}
 }
 
@@ -211,24 +213,27 @@ function moveElement(elm: HTMLElement, x: number, y: number) {
 function getPosition(e: DragEvent) {
 	return { x: e.clientX, y: e.clientY };
 }
-function getSection(sourceFile: TFile | undefined | null, selected: UserSelection, plugin: CardNote, offset = 0): Section {
-	if (sourceFile instanceof TFile && selected.type !== 'mutiple') {
+function getSection(source: FileEditor | undefined, selected: UserSelection, plugin: CardNote): Section {
+	if (source && source?.fileEditor?.file instanceof TFile && selected.type !== 'mutiple') {
+		const { offset, fileEditor } = source,
+			sourceFile = fileEditor.file!;
 		const fileCache = plugin.app.metadataCache.getFileCache(sourceFile),
 			matchStart = (block: CacheItem) => {
 				const start = selected.selection.from + offset;
 				return block.position.start.offset === start;
 			},
+			touch = (block: CacheItem) => {
+				const start = selected.selection.from + offset,
+					end = selected.selection.to + offset,
+					blockStart = block.position.start.offset,
+					blockEnd = block.position.end.offset;
+
+				return (blockEnd > start && blockEnd <= end)
+					|| (blockStart >= start && blockStart < end)
+			},
 			findCorrespondBlock = () => {
-				console.log("user selection:", selected);
 				const start = selected.selection.from + offset;
 				const block = fileCache?.sections?.find(cache => {
-		// if (info.type === "line" || info.type === 'foldable') {
-		// 	const line = getLine(info);
-		// 	sec.position.start.offset === line.from
-		// 	&&sec.position.end.offset === line.to
-
-					// }
-
 					//only top list show in section cache,so find the top list first
 					//next step will find the corresponding list in cache.listItems
 					if (cache.type === 'list') {
@@ -245,44 +250,50 @@ function getSection(sourceFile: TFile | undefined | null, selected: UserSelectio
 
 		const blockCache = findCorrespondBlock(),
 			getList = (): ListBlock & { name?: string } | undefined => {
-			if (blockCache?.type === 'list') {
 				const listItem = fileCache?.listItems?.find(item => {
-					return item.position.start.offset >= selected.selection.from
-						&& item.position.end.offset <= selected.selection.to
+					return item.position.start.offset >= selected.selection.from + offset
+						&& item.position.end.offset <= selected.selection.to + offset
 				});
 				if (listItem) {
 					return {
-						type: blockCache.type,
+						type: 'list',
 						cache: listItem,
 						name: listItem.id
 					};
 				}
-			}
+
 			},
 			getHeading = (): HeadingBlcok | undefined => {
-			if (blockCache?.type === 'heading') {
 				const heading = fileCache?.headings?.find(matchStart);
 				if (heading) {
 					return {
-						type: blockCache.type,
+						type: 'heading',
 						name: heading?.heading,
 						cache: heading,
 					};
 				}
-			}
+
 			},
-			getBlock = (): LinkBlock | UnNamedBlock | undefined => {
-			if (blockCache) {
-				return blockCache.id
-					? {
-						type: 'linkBlock',
-						cache: blockCache,
-						name: blockCache.id,
+			getBlock = (): Block | undefined => {
+				if (blockCache) {
+					if (blockCache.type === 'list') {
+						return getList()
 					}
-					: {
-						cache: blockCache,
-					};
-			}
+					else if (blockCache.type === 'heading') {
+						return getHeading()
+					}
+					else {
+						return blockCache.id
+							? {
+								type: 'linkBlock',
+								cache: blockCache,
+								name: blockCache.id,
+							}
+							: {
+								cache: blockCache,
+							};
+					}
+				}
 			};
 
 		const block = getList() ?? getHeading() ?? getBlock();
@@ -360,7 +371,7 @@ type FileEditor = {
 }
 async function extractSelect(
 	action: Required<BaseAction>,
-	extract: UserSelection,
+	extract: UserSelection & { textOffset: number },
 	view: EditorView,
 	activeFile: FileEditor | null | undefined,
 	locatedView: CanvasView | ExcalidrawView,
@@ -588,19 +599,19 @@ export const dragExtension = (plugin: CardNote) => {
 		let ghost: HTMLElement;
 		let dragoverBackground: HTMLElement;
 		let info: UserSelection;
-		let source: FileEditor | undefined | null;
+		let source: FileEditor | undefined;
 		const handleDrop = async (e: DragEvent) => {
 			const createFileAndDraw = async (
 				locatedView: CanvasView | ExcalidrawView,
 				draw: (target: string | RequiredProperties<LinkPath, 'file' | 'text'>) => void,
 				updateLinksInDraw: (para: UpdateLinksInDrawPara) => Omit<UpdateLinksInDrawPara, 'getNewPath' | 'linkMatch'>
 			) => {
-				const section = info.type === 'line' && info.section ? info.section : getSection(source?.fileEditor?.file, info, plugin);
+				const section = info.type === 'line' && info.section ? info.section : getSection(source, info, plugin);
 				const action = await userAction(plugin, section, info);
 				if (!isBreak(action) && action.type !== 'cancel') {
 					extractSelect(
 						action,
-						info,
+						{ ...info, textOffset: source?.offset ?? 0 },
 						view,
 						source,
 						locatedView,
@@ -713,6 +724,38 @@ export const dragExtension = (plugin: CardNote) => {
 		};
 		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
+			const tree = syntaxTree(view.state)
+			console.log("current editor tree:", tree);
+
+			console.log('in Range')
+			tree.iterate({
+				enter: node => {
+					console.log(
+						"node", node,
+						"node type name", node.type.name,
+						"node name:", node.name,
+						'from', node.from,
+						'to', node.to);
+					return node.type.name.contains('Document')
+				},
+				from: 144,
+				to: 160,
+			})
+			console.log('Entire')
+
+			tree.iterate({
+				enter: node => {
+					console.log(
+						"node", node,
+						"node type name", node.type.name,
+						"node name:", node.name,
+						'from', node.from,
+						'to', node.to);
+
+				},
+			})
+
+
 			source = plugin.getActiveEditorFile();
 			const getSelection = () => {
 				const selectLines = view.state.selection.ranges.map(range => ({
@@ -730,7 +773,7 @@ export const dragExtension = (plugin: CardNote) => {
 				const start = statefield.iter().from;
 				const doc = view.state.doc;
 				const line = view.state.doc.lineAt(start);
-				//console.log("get line", line);
+
 				const foldableRange = foldable(view.state, line.from, line.to);
 				if (foldableRange) {
 					return {
@@ -752,12 +795,17 @@ export const dragExtension = (plugin: CardNote) => {
 							to: line.to,
 						},
 					};
-					const section = getSection(source?.fileEditor?.file, { ...selected, content: '' }, plugin);
-					console.log("line get section?", section);
+					console.log("offset", source?.offset, "line select", selected)
+					const referenceTextOffset = source?.offset ?? 0;
+
+					const section = getSection(source, { ...selected, content: '' }, plugin);
+					console.log("correspond cache", section);
 					const content = section && section.type === 'reference'
-						? doc.sliceString(section.block.cache.position.start.offset, section.block.cache.position.end.offset)
+						? doc.sliceString(
+							section.block.cache.position.start.offset - referenceTextOffset,
+							section.block.cache.position.end.offset - referenceTextOffset)
 						: line.text;
-					console.log("line content", content)
+
 					return {
 						...selected,
 						content,

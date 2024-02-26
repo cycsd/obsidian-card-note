@@ -85,18 +85,7 @@ export async function createTextOnDrawing(event: DragEvent, view: ExcalidrawView
 			text,
 		)
 		await view.addElements(ea.getElements(), false, true, undefined, true);
-		//ea.selectElementsInView([id]);
-		//const eb = ExcalidrawLib;
-		//const api = ea.getExcalidrawAPI();
-		//const appState = api.getAppState();
-		//const { width, height, offsetLeft, offsetTop } = appState;
-		//console.log("getViewState", appState);
-		//@ts-ignore
-		// const position = excalidrawLib.sceneCoordsToViewportCoords({
-		// 	clientX: width / 2 + offsetLeft,
-		// 	clientY: height / 2 + offsetTop,
-		// }, appState);
-		//insertEmbeddableToView()
+
 	} catch (error) {
 		console.log(error);
 	}

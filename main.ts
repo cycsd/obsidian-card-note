@@ -39,7 +39,8 @@ export default class CardNote extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
 		this.app.metadataCache.on("changed", (file, data, cach) => {
-			console.log("file", file, 'data', data, 'cache', cach);
+			//, 'data', data
+			console.log("file", file, 'cache', cach);
 		})
 	}
 	onunload() { }
@@ -85,10 +86,7 @@ export default class CardNote extends Plugin {
 		}
 	}
 	getActiveEditorFile() {
-		const activeEditor = this.app.workspace.activeEditor;
 		const view = this.app.workspace.getActiveViewOfType(TextFileView);
-		console.log("detect editor in fn", activeEditor);
-		console.log("detect view", view);
 
 		if (view) {
 			//return canvas node because excalidraw also use canvas node and need to get narrow to block offset
@@ -113,7 +111,7 @@ export default class CardNote extends Plugin {
 			}
 
 		}
-		return { fileEditor: activeEditor, offset: 0 }
+		return { fileEditor: this.app.workspace.activeEditor, offset: 0 }
 	}
 
 	async checkFileName(file: FileInfo): Promise<FileInfo | Error> {
@@ -192,9 +190,11 @@ export default class CardNote extends Plugin {
 		const cache = this.app.metadataCache.getFileCache(file);
 		const blocks = cache?.blocks;
 		const inRange = (item: CacheItem) => {
-			const start = item.position.start;
+			//const start = item.position.start;
 			const end = item.position.end;
-			return from <= start.offset && end.offset <= to
+			//return from <= start.offset && end.offset <= to
+			return end.offset > from
+				&& end.offset <= to
 		}
 		const blocksInRange: BlockCache[] = [];
 		for (const blockName in blocks) {
