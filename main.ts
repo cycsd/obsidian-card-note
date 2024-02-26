@@ -18,7 +18,7 @@ import { CanvasData, CanvasFileData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 
 
-// Remember to rename these classes and interfaces!
+
 interface CardNoteSettings {
 	dragSymbol: string,
 	dragSymbolSize?: number,
@@ -38,10 +38,6 @@ export default class CardNote extends Plugin {
 		this.registerEditorExtension(dragExtension(this));
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
-		this.app.metadataCache.on("changed", (file, data, cach) => {
-			//, 'data', data
-			console.log("file", file, 'cache', cach);
-		})
 	}
 	onunload() { }
 
@@ -100,14 +96,11 @@ export default class CardNote extends Plugin {
 					: undefined
 			}
 			if (isExcalidrawView(view)) {
-				// 	this.app.workspace.activeEditor
 				const embeddable = view.getActiveEmbeddable(),
 					before = embeddable?.node?.child.before as string ?? '';
 
 				return embeddable?.node && isCanvasFileNode(embeddable.node)
 					? { fileEditor: embeddable.node, offset: before.length } : undefined
-			//embeddable?.node?.file ?? (embeddable?.leaf.view instanceof MarkdownView ? embeddable.leaf.view.file : undefined)
-			// 	return
 			}
 
 		}
@@ -138,7 +131,7 @@ export default class CardNote extends Plugin {
 	}
 	updateInternalLinks(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string) {
 		const changes = LinkToChanges(linkMap, newPath);
-		//不更新canvas
+		//can not update canvas
 		this.app.fileManager.updateInternalLinks(changes);
 	}
 	renameCanvasSubpath(origin: LinkFilePath, newFile: LinkFilePath) {
@@ -222,7 +215,6 @@ export default class CardNote extends Plugin {
 		const linkMap = new Map<string, LinkInfo[]>();
 		fileManger.iterateAllRefs((fileName, linkCache) => {
 			fileName.normalize()
-			//sourcePath = 來源檔名
 			//linkPath = link target (file Name)
 			const linkInfo = this.createLinkInfo(linkCache);
 			const { path, subpath } = linkInfo;
@@ -281,10 +273,10 @@ class CardNoteTab extends PluginSettingTab {
 		this.addSizeSetting();
 		new Setting(containerEl)
 			.setName("Default folder")
-			.setDesc("Default loction for new note. if empty, new note will be created in the Vault root.")
+			.setDesc("Default loction for new note. if empty, new note will be created in the vault root.")
 			.addText((text) =>
 				text
-					.setPlaceholder("folder in the vault/sub folder name")
+					.setPlaceholder("/sub folder name")
 					.setValue(this.plugin.settings.defaultFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.defaultFolder = value;

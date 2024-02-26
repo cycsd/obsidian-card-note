@@ -2,14 +2,14 @@ import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language";
-import { Break, ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties, BLOCKIDREPLACE, HEADINGREPLACE, listItemParser } from "src/utility";
+import { Break, ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties, BLOCKIDREPLACE, listItemParser } from "src/utility";
 import { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, MarkdownRenderer, SectionCache, TFile } from "obsidian";
 import { BaseAction, FileNameCheckModal, FileNameModelConfig, UserAction } from "src/ui";
 import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView, isObsidianMarkdownEmbeded } from "src/adapters/obsidian-excalidraw-plugin";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
-import { syntaxTree } from "@codemirror/language";
+//import { syntaxTree } from "@codemirror/language";
 
 
 
@@ -60,13 +60,7 @@ type NamedBlock = LinkBlock | HeadingBlcok | (ListBlock & { name: string });
 type UnNamedBlock = {
 	cache: SectionCache,
 } | ListBlock;
-// type BaseBlock = {
-// 	type: 'heading' | 'list' | 'linkBlock'
-// 	defaultName: string
-// } | {
-// 	type: 'paragraph'
-// 	extractName: string
-// }
+
 type Block = NamedBlock | UnNamedBlock;
 export type BaseReferenceSection = {
 	type: 'reference',
@@ -80,7 +74,7 @@ export type LazyReferenceSection = {
 export type UnReferenceSection = {
 	type: 'unreference'
 }
-export type Section = (BaseReferenceSection | LazyReferenceSection | UnReferenceSection) //& {
+export type Section = (BaseReferenceSection | LazyReferenceSection | UnReferenceSection)
 
 export type LinkPath = {
 	path: string,
@@ -167,7 +161,7 @@ async function userAction(plugin: CardNote, section: Section, selected: UserSele
 			}
 			if (value.type === 'linkToReference') {
 				const findUnvalidBlockSymbol = () => BLOCKIDREPLACE().exec(value.newName);
-				//? new Error('Block id noly accept alphanumeric and -') : value;
+
 				return isHeadingBlock(value.section.block)
 					? value
 					: findUnvalidBlockSymbol()
@@ -331,7 +325,6 @@ export function fileUpdateObserver(plugin: CardNote, file: TFile) {
 	const metadataCache = plugin.app.metadataCache;
 	const e = metadataCache.on('changed', (changeFile, data, cache) => {
 		if (changeFile === file) {
-			//metadataCache.offref(e);
 			const r = {
 				file: changeFile,
 				data,
@@ -340,7 +333,6 @@ export function fileUpdateObserver(plugin: CardNote, file: TFile) {
 			res = Promise.resolve(r);
 			waiting.forEach(resolve => resolve(r));
 			waiting = [];
-			console.log("need to be close after excute once");
 		}
 	});
 	return {
@@ -440,8 +432,7 @@ async function extractSelect(
 		const newFile = await plugin.app.vault.create(filePath, extract.content);
 		const newFileLink = plugin.createLinkText(newFile);
 		target = newFileLink;
-		//const newPath = fileLink.path;
-		//if (section.type === 'reference') {
+
 		if (activeFile?.fileEditor?.file) {
 			const sourceFile = activeFile.fileEditor.file;
 			//update vault internal link
@@ -455,55 +446,8 @@ async function extractSelect(
 				return plugin.createLinkText(newFile, oldPath.subpath, oldPath.displayText);
 
 			};
+
 			updateInternalLinks(sourceFile, createNewPath, match, [sourceFile, newFile]);
-			// const [selfLinks, outer] = plugin.findLinks(
-			// 	sourceFile, match);
-			// const canvasHasMatchLinks = plugin.getCanvas((canvasPath, embed) => {
-			// 	const subpath = embed.subpath;//#^
-			// 	return match({ path: embed.file ?? '', subpath })
-			// })
-			// const undealData = updateLinksInDraw({
-			// 	textFile: outer,
-			// 	canvas: canvasHasMatchLinks,
-			// 	linkMatch: match,
-			// 	getNewPath: createNewPath
-			// });
-			// plugin.updateInternalLinks(undealData.textFile, text => {
-			// 	const newPath = createNewPath({ path: text.path, subpath: text.subpath });
-			// 	return `${newPath.path}${newPath.subpath}`
-			// })
-			// plugin.updateCanvasLinks(undealData.canvas, node => {
-			// 	if (match({ path: node.file, subpath: node.subpath })) {
-			// 		const newPath = createNewPath({ path: node.file, subpath: node.subpath });
-			// 		return {
-			// 			...node,
-			// 			file: newPath.path + MarkdownFileExtension,
-			// 			subpath: newPath.subpath,
-			// 		}
-			// 	}
-			// 	return node
-			// })
-			// if (selfLinks) {
-			// 	const linksSet = selfLinks.map(l => l.link.link);
-			// 	onFilesUpdated(plugin, [sourceFile, newFile], (data) => {
-			// 		const res = new Map<string, LinkInfo[]>;
-			// 		data.map(d => {
-			// 			const links = d.cache.links ?? [];
-			// 			const embeds = d.cache.embeds ?? [];
-			// 			const all = links.concat(embeds);
-			// 			const linkRef = all.filter(cache => linksSet.contains(cache.link))
-			// 				.map(plugin.createLinkInfo);
-			// 			return {
-			// 				file: d.file.path,
-			// 				linkRef
-			// 			}
-			// 		}).forEach(d => { if (d.linkRef.length > 0) { res.set(d.file, d.linkRef); } })
-			// 		plugin.updateInternalLinks(res, text => {
-			// 			const newPath = createNewPath({ path: text.path, subpath: text.subpath });
-			// 			return `${newPath.path}${newPath.subpath}`
-			// 		})
-			// 	}, 10);
-			// }
 		}
 		//handle self link and replace text with link
 		const replaceTextWithLink = () => {
@@ -724,39 +668,8 @@ export const dragExtension = (plugin: CardNote) => {
 		};
 		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
-			const tree = syntaxTree(view.state)
-			console.log("current editor tree:", tree);
-
-			console.log('in Range')
-			tree.iterate({
-				enter: node => {
-					console.log(
-						"node", node,
-						"node type name", node.type.name,
-						"node name:", node.name,
-						'from', node.from,
-						'to', node.to);
-					return node.type.name.contains('Document')
-				},
-				from: 144,
-				to: 160,
-			})
-			console.log('Entire')
-
-			tree.iterate({
-				enter: node => {
-					console.log(
-						"node", node,
-						"node type name", node.type.name,
-						"node name:", node.name,
-						'from', node.from,
-						'to', node.to);
-
-				},
-			})
-
-
 			source = plugin.getActiveEditorFile();
+
 			const getSelection = () => {
 				const selectLines = view.state.selection.ranges.map(range => ({
 					from: range.from,
@@ -795,11 +708,8 @@ export const dragExtension = (plugin: CardNote) => {
 							to: line.to,
 						},
 					};
-					console.log("offset", source?.offset, "line select", selected)
 					const referenceTextOffset = source?.offset ?? 0;
-
 					const section = getSection(source, { ...selected, content: '' }, plugin);
-					console.log("correspond cache", section);
 					const content = section && section.type === 'reference'
 						? doc.sliceString(
 							section.block.cache.position.start.offset - referenceTextOffset,

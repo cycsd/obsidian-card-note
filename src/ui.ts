@@ -1,5 +1,5 @@
-import { App, BlockCache, Modal, Setting, TFile, debounce } from "obsidian";
-import { BaseReferenceSection, Section, isHeadingBlock, isNamedBlock } from "src/dragUpdate"
+import { App, Modal, Setting } from "obsidian";
+import { BaseReferenceSection, Section, isHeadingBlock } from "src/dragUpdate"
 import { BLOCKIDREPLACE, FileInfo, FILENAMEREPLACE } from "src/utility";
 
 
@@ -22,9 +22,6 @@ export type FileNameModelConfig = {
 	app: App,
 	name: string,
 	section: Section,
-	// onCreateFile: (newFileName: string) => void,
-	// onLinkToReference: (newSectionName: string, section: Section) => void,
-	// onCut: () => void,
 	onSubmit: (action: UserAction) => void,
 	errorMessage?: string,
 
@@ -32,9 +29,6 @@ export type FileNameModelConfig = {
 export class FileNameCheckModal extends Modal {
 	//newName: Promise<string>;
 	section: Section;
-	// onCreateFile: (newFileName: string) => void;
-	// onLinkToReference: (newSectionName: string, section: Section) => void;
-	// onCut: () => void;
 	onSubmit: (action: UserAction) => void;
 	errorMessage?: string
 	userInput: string;
@@ -46,34 +40,11 @@ export class FileNameCheckModal extends Modal {
 		this.userInput = config.name;
 		//this.newName = Promise.resolve(config.name);
 		this.section = config.section;
-		// this.onCreateFile = config.onCreateFile;
-		// this.onLinkToReference = config.onLinkToReference;
-		// this.onCut = config.onCut;
 		this.onSubmit = config.onSubmit;
 		this.errorMessage = config.errorMessage;
     }
 	onOpen(): void {
-		// const handleTextChange = async (value: string, setting: Setting) => {
-		// 	this.newName = Promise.resolve(value);
-		// 	setting.setDesc(getNameDesc(await this.newName));
-		// }
 
-		// const validFileName = this.parseToValidFile(this.defaultName),
-		// 	validBlockName = this.parseToValidBlockName(this.defaultName);
-
-		// let validNewFileName = Promise.resolve(validFileName),
-		// 	validNewBlockName = Promise.resolve(validBlockName);
-
-		// const handleTextChange = this.debounce((value: string, setting: Setting) => {
-		// 	let blockName: string | undefined;
-		// 	//regex value
-		// 	const fileName = this.parseToValidFile(value);
-		// 	if (this.section.type === 'reference') {
-		// 		blockName = this.parseToValidBlockName(value);
-		// 	}
-		// 	this.trySetDescription(setting, this.getNameDesc(fileName, blockName));
-		// 	return { fileName, blockName }
-		// }, 0.3)
 		const linkReferenceDescription = this.section.type === 'reference'
 			? isHeadingBlock(this.section.block)
 				? ' or link to heading' : ' or link to block'
@@ -86,15 +57,7 @@ export class FileNameCheckModal extends Modal {
 			.addText(text => {
 				text.setValue(this.userInput ?? "");
 				text.onChange(value => {
-
 					this.userInput = value;
-					// const newName = handleTextChange(value, nameSetting);
-					// validNewFileName = newName.then(data => data.fileName);
-					// validNewBlockName = newName.then(data => data.blockName);
-
-					// this.newName = Promise.resolve(value);
-					// this.test = value;
-					// nameSetting.setDesc(this.test);
                 });
 			});
 		const actions = new Setting(contentEl)
@@ -134,7 +97,6 @@ export class FileNameCheckModal extends Modal {
 		}).addButton(btn => {
 			btn.setIcon('x')
 				.setTooltip(`Cancel`)
-				//.setButtonText("Cancel")
 				.setCta()
 				.onClick(() => {
 					this.onSubmit({ type: 'cancel' });
@@ -160,7 +122,7 @@ export class FileNameCheckModal extends Modal {
 	}
 	trySetDescription(setting: Setting, desc: string | DocumentFragment): void {
 		try {
-			setting?.setDesc(desc); //debounce
+			setting?.setDesc(desc);
 		} catch (e) {
 			console.log("expect set description before closing Modal", e);
 		}

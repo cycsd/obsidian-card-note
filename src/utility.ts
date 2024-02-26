@@ -1,5 +1,5 @@
 import CardNote from "main";
-import { Changes, ChangeInfo, normalizePath, LinkCache } from "obsidian";
+import { Changes, ChangeInfo, LinkCache } from "obsidian";
 
 
 
@@ -13,7 +13,6 @@ export type RequiredProperties<T, P extends keyof T> = Omit<T, P> & Required<Pic
 export function throttle<T extends unknown[], V>(
 	cb: (...args: [...T]) => V,
 	secondTimeout = 0,
-	resetTimer?: boolean
 ) {
 	let timer = false;
 	let result: V;
@@ -53,27 +52,8 @@ export function createFullPath(file: FileInfo) {
 		? fileName
 		: `${file.folderPath}/${fileName}`;
 }
-export async function checkFileName1(plugin: CardNote, file: FileInfo) {
-	if (isBreak(file)) {
-		return file;
-	}
-	if (file.fileName.length === 0) {
-		throw new Error("File Name can not be empty!");
-	}
-	if (file.fileName.endsWith(" ")) {
-		throw new Error("File Name can not end with white space!");
-	}
-	const filePathUncheck = createFullPath(file)
-	const normalFilePath = normalizePath(filePathUncheck);
-	plugin.app.vault.checkPath(normalFilePath)
-	if (await plugin.app.vault.adapter.exists(normalFilePath)) {
-		throw new Error("File Exist!");
-	}
-	return file;
-}
+
 export async function ReCheck<T, R = T, R2 = R>(config: CheckConfig<T, R, R2>): Promise<R2 | Break> {
-	// let state = config.create();
-	// let folder;
 	let errorMessage: string | undefined;
 	let args = config.create();
 	let result: Awaited<R> | undefined;
@@ -81,7 +61,6 @@ export async function ReCheck<T, R = T, R2 = R>(config: CheckConfig<T, R, R2>): 
 	while (true) {
 		try {
 			result = await config.provide(args, result, errorMessage);
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			if (isBreak(result)) {
 				return result;
 			}
@@ -93,26 +72,6 @@ export async function ReCheck<T, R = T, R2 = R>(config: CheckConfig<T, R, R2>): 
 			else {
 				return validResult;
 			}
-			// const file = await config.provide(state, folder, errorMessage);
-			// if (isBreak(file)) {
-			// 	return file;
-			// }
-			// const e = config.check(file);
-			// if (e instanceof Error)
-			// if (file.fileName.length === 0) {
-			// 	throw new Error("File Name can not be empty!");
-			// }
-			// if (file.fileName.endsWith(" ")) {
-			// 	throw new Error("File Name can not end with white space!");
-			// }
-			// const filePathUncheck = createFullPath(file)
-			// const normalFilePath = normalizePath(filePathUncheck);
-			// plugin.app.vault.checkPath(normalFilePath)
-			// if (await plugin.app.vault.adapter.exists(normalFilePath)) {
-			// 	throw new Error("File Exist!");
-			// }
-			// return file;
-
 		} catch (error) {
 			args = config.update(args);
 			errorMessage = error.message;
@@ -257,7 +216,6 @@ export function UpdateLinkText(sourcePath: string, linkInfo: LinkInfo, newPath: 
 		const match = r.regex.exec(linkInfo.link.original);
 		if (match) {
 			const np = newPath(linkInfo);
-			//const display = match.groups?.display ?? "";
 			const newText = r.newText(match, np);
 			return {
 				change: newText,

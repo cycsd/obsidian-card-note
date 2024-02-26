@@ -180,21 +180,6 @@ declare module "obsidian" {
 		type: 'heading' | 'list' | 'paragraph' | 'blockquote' | string;
 	}
 
-	// interface LinkInfo {
-	// 	/**
-	// 	 * text display in prev mode
-	// 	 */
-	// 	displayText: string,
-	// 	/**
-	// 	 * fileName#^subpath
-	// 	 */
-	// 	link: string,
-	// 	/**
-	// 	 * text in editor [[{@link link}|showText]]
-	// 	 */
-	// 	original: string,
-	// 	position: Pos,
-	// }
 	interface ChangeInfo {
 		/**
 		 * new link text set to editor
