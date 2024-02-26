@@ -780,7 +780,8 @@ export const dragExtension = (plugin: CardNote) => {
 			const symbol = dragSymbol.createSpan();
 			symbol.innerText = plugin.settings.dragSymbol;
 			symbol.style.fontSize = `${plugin.settings.dragSymbolSize}px`;
-
+			console.log("view", view);
+			console.log("detect view doc change after reference?", view.state.doc);
 			const { reset } = addDragStartEvent(dragSymbol, view);
 
 			dragSymbol.addEventListener("dragend", () => {
@@ -811,7 +812,7 @@ export const dragExtension = (plugin: CardNote) => {
 			const gut = gutter({
 				markers: (v) => {
 					const range_set = v.state.field(value);
-					return range_set;
+					return v.state.doc.length !== 0 ? range_set : RangeSet.empty;
 				},
 				initialSpacer: () => dragMarker,
 			});
