@@ -1,6 +1,6 @@
 {
 	"name": "card-note-plugin",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Help you quickly extract your thought in the Canvas and Excalidraw",
 	"main": "main.js",
 	"scripts": {
