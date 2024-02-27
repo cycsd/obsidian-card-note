@@ -486,8 +486,8 @@ async function extractSelect(
 			const reName = () => oldBlock.name !== name;
 			if (reName()) {
 				const oldName = oldBlock.name,
-				from = block.cache.position.end.offset - oldName.length,
-				to = block.cache.position.end.offset;
+					from = block.cache.position.end.offset - extract.textOffset - oldName.length,
+					to = block.cache.position.end.offset - extract.textOffset;
 				updateInternalLinks(
 					sourceFile,
 					old => ({
@@ -510,7 +510,7 @@ async function extractSelect(
 		}
 		else {
 			//insert new block name
-			const insertNamePosition = block.cache.position.end.offset;
+			const insertNamePosition = block.cache.position.end.offset - extract.textOffset;
 			const trans = view.state.update({
 				changes: { from: insertNamePosition, insert: ' ^' + name }
 			});
@@ -582,22 +582,23 @@ export const dragExtension = (plugin: CardNote) => {
 					(para) => {
 						const { linkMatch, textFile, getNewPath } = para;
 						if (textFile.delete(drawView.file?.path ?? "")) {
-							const nodes = Array.from(drawView.embeddableLeafRefs.entries()).map(value => {
-								const [id, refObject] = value;
+							const nodes = Array.from(drawView.canvasNodeFactory.nodes.entries()).map(value => {
+								const [id, refNode] = value;
 								const getLinkInfo = (node: CanvasFileNode) => {
 									return { path: node.filePath, subpath: node.subpath };
 								};
-								if (isObsidianMarkdownEmbeded(refObject)
-									&& isCanvasFileNode(refObject.node)
-									&& linkMatch(getLinkInfo(refObject.node))) {
-									return { id, link: getNewPath(getLinkInfo(refObject.node)) };
+								if (isCanvasFileNode(refNode)
+									&& linkMatch(getLinkInfo(refNode))) {
+									return { id, link: getNewPath(getLinkInfo(refNode)) };
 								}
 							}).filter(v => v !== undefined) as { id: string, link: LinkFilePath }[];
 							nodes.forEach(node => {
-								const element = drawView.excalidrawAPI.getSceneElements().find((e) => e.id === node.id);
-								drawView.excalidrawData.elementLinks.set(node.id, node.link.text!);
+								const elements = drawView.excalidrawAPI.getSceneElements().filter((e) => e.id === node.id);
+								elements.forEach(elem => {
+									drawView.excalidrawData.elementLinks.set(node.id, node.link.text!);
 								//@ts-ignore
-								ExcalidrawLib.mutateElement(element, { link: node.link.text });
+									ExcalidrawLib.mutateElement(elem, { link: node.link.text });
+								})
 							}
 							);
 							drawView.setDirty(99);

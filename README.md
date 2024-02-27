@@ -14,10 +14,10 @@ This tool integrates creating notes and inserting notes into visualized tools. I
 
 > [!note] 
 > # You don't need to use this plugin
-> ## if you are comfortable with flowing steps:
+> ## if you are comfortable with following steps:
 > 1. Right-click to open the tools menu in the editor
 > 2. Use Obsidian Note Composer to extract your thoughts into a new note
-> 3. In [Obsidian Canvas](https://obsidian.md/canvas) or [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin), Right-click to open the tools  menu.
+> 3. In [Obsidian Canvas](https://obsidian.md/canvas) or [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin), Right-click to open the tools menu.
 > 4. Insert markdown file to canvas.
 > 5. You can replace Right-click by setting Note Composer hotkey, and replace steps 3 ~ 4 by dragging link in editor.
 
