@@ -209,29 +209,31 @@ export default class CardNote extends Plugin {
 			link: cache,
 		}
 	}
-	findLinks(targetFile: TFile, match: (link: LinkPath) => boolean): [LinkInfo[] | undefined, Map<string, LinkInfo[]>] {
-		const cache = this.app.metadataCache;
-		const fileManger = this.app.fileManager;
-		const linkMap = new Map<string, LinkInfo[]>();
-		fileManger.iterateAllRefs((fileName, linkCache) => {
-			fileName.normalize()
-			//linkPath = link target (file Name)
-			const linkInfo = this.createLinkInfo(linkCache);
-			const { path, subpath } = linkInfo;
-			//getFirstLinkpathDest: 得到來源檔名中此link path連結到哪個file
-			if (match({ path, subpath, file: cache.getFirstLinkpathDest(path, fileName) ?? undefined })) {
-				const links = linkMap.get(fileName);
-				if (links) {
-					links.push(linkInfo);
+	findLinks(targetFile: TFile, match: (link: LinkPath) => boolean): Promise<[LinkInfo[] | undefined, Map<string, LinkInfo[]>]> {
+		return new Promise(res => {
+			const cache = this.app.metadataCache;
+			const fileManger = this.app.fileManager;
+			const linkMap = new Map<string, LinkInfo[]>();
+			fileManger.iterateAllRefs((fileName, linkCache) => {
+				fileName.normalize()
+				//linkPath = link target (file Name)
+				const linkInfo = this.createLinkInfo(linkCache);
+				const { path, subpath } = linkInfo;
+				//getFirstLinkpathDest: 得到來源檔名中此link path連結到哪個file
+				if (match({ path, subpath, file: cache.getFirstLinkpathDest(path, fileName) ?? undefined })) {
+					const links = linkMap.get(fileName);
+					if (links) {
+						links.push(linkInfo);
+					}
+					else {
+						linkMap.set(fileName, [linkInfo]);
+					}
 				}
-				else {
-					linkMap.set(fileName, [linkInfo]);
-				}
-			}
+			})
+			const selfLink = linkMap.get(targetFile.path);
+			linkMap.delete(targetFile.path);
+			res([selfLink, linkMap]);
 		})
-		const selfLink = linkMap.get(targetFile.path);
-		linkMap.delete(targetFile.path);
-		return [selfLink, linkMap];
 	}
 	normalizeHeadingToLinkText(heading: string) {
 		//const useMarkdownLink = this.app.vault.getConfig("useMarkdownLinks"),
@@ -244,6 +246,11 @@ export default class CardNote extends Plugin {
 		return useMarkdownLink
 			? link.replace(' ', '%20')
 			: link
+	}
+	createRandomBlockId(length = 6) {
+		const id = [...Array(6).keys()]
+			.map(_ => (16 * Math.random() | 0).toString(16)).join('')
+		return id
 	}
 }
 

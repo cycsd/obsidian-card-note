@@ -1,4 +1,5 @@
-import { App, Modal, Setting } from "obsidian";
+import CardNote from "main";
+import { Modal, Setting, TextComponent } from "obsidian";
 import { BaseReferenceSection, Section, isHeadingBlock } from "src/dragUpdate"
 import { BLOCKIDREPLACE, FileInfo, FILENAMEREPLACE } from "src/utility";
 
@@ -19,7 +20,7 @@ export type BaseAction = (CreateFile | LinkToReference) & { newName: string } | 
 export type UserAction = BaseAction | { type: 'cancel' }
 
 export type FileNameModelConfig = {
-	app: App,
+	plugin: CardNote,
 	name: string,
 	section: Section,
 	onSubmit: (action: UserAction) => void,
@@ -32,11 +33,13 @@ export class FileNameCheckModal extends Modal {
 	onSubmit: (action: UserAction) => void;
 	errorMessage?: string
 	userInput: string;
+	plugin: CardNote;
 
 	constructor(
 		config: FileNameModelConfig
 	) {
-		super(config.app);
+		super(config.plugin.app);
+		this.plugin = config.plugin;
 		this.userInput = config.name;
 		//this.newName = Promise.resolve(config.name);
 		this.section = config.section;
@@ -51,15 +54,27 @@ export class FileNameCheckModal extends Modal {
 			: '';
 
 		const { contentEl } = this;
+		let userInputText: TextComponent;
 		const nameSetting = new Setting(contentEl)
 			//.setName("New Name")
 			.setDesc(`Create file${linkReferenceDescription}`)
 			.addText(text => {
+				userInputText = text;
 				text.setValue(this.userInput ?? "");
 				text.onChange(value => {
 					this.userInput = value;
-                });
-			});
+				});
+			})
+			.addButton(btn => {
+				btn.setIcon('dices')
+					.setTooltip('Create random block id')
+					.setCta()
+					.onClick(() => {
+						this.userInput = this.plugin.createRandomBlockId();
+						userInputText?.setValue(this.userInput);
+					})
+			})
+
 		const actions = new Setting(contentEl)
 			.addButton(btn => {
 				btn.setIcon('file-plus-2')

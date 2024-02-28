@@ -11,7 +11,11 @@ import { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 //import { syntaxTree } from "@codemirror/language";
 
-
+type WhiteBoard = {
+	located: CanvasView | ExcalidrawView,
+	draw: (target: string | RequiredProperties<LinkPath, 'file' | 'text'>) => void,
+	updateLinks: (para: UpdateLinksInDrawPara) => void,
+}
 
 
 type Selection = {
@@ -188,7 +192,7 @@ async function userAction(plugin: CardNote, section: Section, selected: UserSele
 					: getDefault();
 
 			return {
-				app: plugin.app,
+				plugin,
 				section,
 				name: defulatName ?? "",
 			};
@@ -309,8 +313,6 @@ function getSection(source: FileEditor | undefined, selected: UserSelection, plu
 	}
 }
 type UpdateLinksInDrawPara = {
-	textFile: Map<string, LinkInfo[]>,
-	canvas: string[],
 	getNewPath: (oldPath: LinkPath) => LinkFilePath,
 	linkMatch: (link: LinkPath) => boolean,
 }
@@ -366,47 +368,21 @@ async function extractSelect(
 	extract: UserSelection & { textOffset: number },
 	view: EditorView,
 	activeFile: FileEditor | null | undefined,
-	locatedView: CanvasView | ExcalidrawView,
-	updateLinksInDraw: (para: UpdateLinksInDrawPara) => Omit<UpdateLinksInDrawPara, 'getNewPath' | 'linkMatch'>,
-	draw: (target: string | RequiredProperties<LinkPath, 'file' | 'text'>) => void,
-	plugin: CardNote) {
-
-	let target: string | RequiredProperties<LinkPath, 'file' | 'text'>;
-	const updateInternalLinks = (
+	whiteboard: WhiteBoard,
+	plugin: CardNote,
+) {
+	// let target: string | RequiredProperties<LinkPath, 'file' | 'text'>;
+	const updateInternalLinks = async (
 		sourceFile: TFile,
 		createNewPath: (old: LinkPath) => LinkFilePath,
 		match: (old: LinkPath) => boolean,
 		updateAfterDraw: TFile[]) => {
-		const [selfLinks, outer] = plugin.findLinks(
-			sourceFile, match);
-		const canvasHasMatchLinks = plugin.getCanvas((canvasPath, embed) => {
-			const subpath = embed.subpath;//#^
-			return match({ path: embed.file ?? '', subpath });
-		});
-		const undealData = updateLinksInDraw({
-			textFile: outer,
-			canvas: canvasHasMatchLinks,
-			linkMatch: match,
-			getNewPath: createNewPath
-		});
-		plugin.updateInternalLinks(undealData.textFile, text => {
-			const newPath = createNewPath({ path: text.path, subpath: text.subpath });
-			return `${newPath.path}${newPath.subpath}`;
-		});
-		plugin.updateCanvasLinks(undealData.canvas, node => {
-			if (match({ path: node.file, subpath: node.subpath })) {
-				const newPath = createNewPath({ path: node.file, subpath: node.subpath });
-				return {
-					...node,
-					file: newPath.path + MarkdownFileExtension,
-					subpath: newPath.subpath,
-				};
-			}
-			return node;
-		});
-		if (selfLinks) {
-			const linksSet = selfLinks.map(l => l.link.link);
-			onFilesUpdated(plugin, updateAfterDraw, (data) => {
+		// const [selfLinks, outer] = plugin.findLinks(sourceFile, match);
+		const linksInFiles = plugin.findLinks(sourceFile, match);
+		onFilesUpdated(plugin, updateAfterDraw, async (data) => {
+			const [selfLinks, _] = await linksInFiles;
+			if (selfLinks) {
+				const linksSet = selfLinks.map(l => l.link.link);
 				const res = new Map<string, LinkInfo[]>;
 				data.map(d => {
 					const links = d.cache.links ?? [];
@@ -423,32 +399,54 @@ async function extractSelect(
 					const newPath = createNewPath({ path: text.path, subpath: text.subpath });
 					return `${newPath.path}${newPath.subpath}`;
 				});
+			}
 			}, 10);
+
+		const [_, outer] = await linksInFiles;
+		const canvasHasMatchLinks = plugin.getCanvas((canvasPath, embed) => {
+			const subpath = embed.subpath;//#^
+			return match({ path: embed.file ?? '', subpath });
+		});
+		const whiteboardPath = whiteboard.located.file?.path,
+			updateLinksInDraw = () => {
+				whiteboard.updateLinks({
+					getNewPath: createNewPath,
+					linkMatch: match,
+				})
+			};
+		if (outer.has(whiteboardPath ?? '')) {
+			outer.delete(whiteboardPath ?? '');
+			updateLinksInDraw();
 		}
+		else if (canvasHasMatchLinks.contains(whiteboardPath ?? '')) {
+			canvasHasMatchLinks.remove(whiteboardPath ?? '');
+			updateLinksInDraw()
+		}
+
+		plugin.updateInternalLinks(outer, text => {
+			const newPath = createNewPath({ path: text.path, subpath: text.subpath });
+			return `${newPath.path}${newPath.subpath}`;
+		});
+		plugin.updateCanvasLinks(canvasHasMatchLinks, node => {
+			if (match({ path: node.file, subpath: node.subpath })) {
+				const newPath = createNewPath({ path: node.file, subpath: node.subpath });
+				return {
+					...node,
+					file: newPath.path + MarkdownFileExtension,
+					subpath: newPath.subpath,
+				};
+			}
+			return node;
+		});
+
 	};
 	if (action.type === 'createFile') {
 		//replace editor's select line or text with link
 		const filePath = action.file.fileName;
 		const newFile = await plugin.app.vault.create(filePath, extract.content);
 		const newFileLink = plugin.createLinkText(newFile);
-		target = newFileLink;
+		// target = newFileLink;
 
-		if (activeFile?.fileEditor?.file) {
-			const sourceFile = activeFile.fileEditor.file;
-			//update vault internal link
-			const [blocks, headings] = getLinkBlocks(extract, sourceFile, plugin);
-			const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(cache => `#${cache.heading}`)];
-			const match = (link: LinkPath) =>
-				(link.path === sourceFile.path || link.file === sourceFile)
-				&& link.subpath !== undefined
-				&& subpathSet.contains(link.subpath);
-			const createNewPath = (oldPath: LinkPath): LinkFilePath => {
-				return plugin.createLinkText(newFile, oldPath.subpath, oldPath.displayText);
-
-			};
-
-			updateInternalLinks(sourceFile, createNewPath, match, [sourceFile, newFile]);
-		}
 		//handle self link and replace text with link
 		const replaceTextWithLink = () => {
 			const trans = view.state.update({
@@ -461,13 +459,30 @@ async function extractSelect(
 			view.dispatch(trans);
 		};
 		replaceTextWithLink();
+		if (activeFile?.fileEditor?.file) {
+			const sourceFile = activeFile.fileEditor.file;
+			//update vault internal link
+			const [blocks, headings] = getLinkBlocks(extract, sourceFile, plugin);
+			const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(cache => `#${plugin.normalizeHeadingToLinkText(cache.heading)}`)];
+			const match = (link: LinkPath) =>
+				(link.path === sourceFile.path || link.file === sourceFile)
+				&& link.subpath !== undefined
+				&& subpathSet.contains(link.subpath);
+			const createNewPath = (oldPath: LinkPath): LinkFilePath => {
+				return plugin.createLinkText(newFile, oldPath.subpath, oldPath.displayText);
+
+			};
+			await updateInternalLinks(sourceFile, createNewPath, match, [sourceFile, newFile]);
+		}
+		whiteboard.draw(newFileLink);
+
 	}
 	else if (action.type === 'linkToReference') {
 		const block = action.section.block,
 			sourceFile = action.section.file;
 		const name = action.newName;
 
-		const subpath = isHeadingBlock(action.section.block)
+		const subpath = isHeadingBlock(block)
 			? {
 				symbol: '#',
 				path: plugin.normalizeHeadingToLinkText(name),
@@ -480,32 +495,31 @@ async function extractSelect(
 		const oldBlock = isNamedBlock(block) ? block : undefined;
 
 		const newPath = plugin.createLinkText(sourceFile, subpath.symbol + subpath.path);
-		target = newPath;
+		// target = newPath;
 
 		if (oldBlock) {
 			const reName = () => oldBlock.name !== name;
 			if (reName()) {
 				const oldName = oldBlock.name,
+					oldPath = isHeadingBlock(oldBlock)
+						? '#' + plugin.normalizeHeadingToLinkText(oldName)
+						: '#^' + oldName,
 					from = block.cache.position.end.offset - extract.textOffset - oldName.length,
 					to = block.cache.position.end.offset - extract.textOffset;
-				updateInternalLinks(
-					sourceFile,
-					old => ({
-						path: old.path,
-						subpath: plugin.replaceSpaceInLinkText(newPath.subpath ?? ""),
-						file: sourceFile
-					}),
-					link => (link.path === sourceFile.path || link.file === sourceFile)
-					&& link.subpath !== undefined
-						&& link.subpath === newPath.subpath
-					,
-					[sourceFile]
-				)
 				//replace old name
 				const trans = view.state.update({
 					changes: { from, to, insert: subpath.path }
 				});
 				view.dispatch(trans);
+				await updateInternalLinks(
+					sourceFile,
+					old => newPath,
+					link => (link.path === sourceFile.path || link.file === sourceFile)
+					&& link.subpath !== undefined
+						&& link.subpath === oldPath
+					,
+					[sourceFile]
+				)
 			}
 		}
 		else {
@@ -516,10 +530,10 @@ async function extractSelect(
 			});
 			view.dispatch(trans);
 		}
-
+		whiteboard.draw(newPath);
 	}
 	else {
-		target = extract.content;
+		// target = extract.content;
 		const deleteText = () => {
 			const trans = view.state.update({
 				changes: extract.type !== 'mutiple'
@@ -531,11 +545,8 @@ async function extractSelect(
 			view.dispatch(trans);
 		};
 		deleteText();
+		whiteboard.draw(extract.content);
 	}
-
-	draw(target);
-
-
 }
 export const dragExtension = (plugin: CardNote) => {
 	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
@@ -546,9 +557,7 @@ export const dragExtension = (plugin: CardNote) => {
 		let source: FileEditor | undefined;
 		const handleDrop = async (e: DragEvent) => {
 			const createFileAndDraw = async (
-				locatedView: CanvasView | ExcalidrawView,
-				draw: (target: string | RequiredProperties<LinkPath, 'file' | 'text'>) => void,
-				updateLinksInDraw: (para: UpdateLinksInDrawPara) => Omit<UpdateLinksInDrawPara, 'getNewPath' | 'linkMatch'>
+				whiteboard: WhiteBoard,
 			) => {
 				const section = info.type === 'line' && info.section ? info.section : getSection(source, info, plugin);
 				const action = await userAction(plugin, section, info);
@@ -558,10 +567,8 @@ export const dragExtension = (plugin: CardNote) => {
 						{ ...info, textOffset: source?.offset ?? 0 },
 						view,
 						source,
-						locatedView,
-						updateLinksInDraw,
-						draw,
-						plugin
+						whiteboard,
+						plugin,
 					);
 				}
 			};
@@ -570,18 +577,18 @@ export const dragExtension = (plugin: CardNote) => {
 			const drawView = target?.view;
 			if (isExcalidrawView(drawView)) {
 				createFileAndDraw(
-					drawView,
-					(target) => {
-						if (typeof (target) !== 'string') {
-							insertEmbeddableNoteOnDrawing(e, drawView, target.text, target.file, plugin);
-						}
-						else {
-							createTextOnDrawing(e, drawView, target, plugin);
-						}
-					},
-					(para) => {
-						const { linkMatch, textFile, getNewPath } = para;
-						if (textFile.delete(drawView.file?.path ?? "")) {
+					{
+						located: drawView,
+						draw: (target) => {
+							if (typeof (target) !== 'string') {
+								insertEmbeddableNoteOnDrawing(e, drawView, target.text, target.file, plugin);
+							}
+							else {
+								createTextOnDrawing(e, drawView, target, plugin);
+							}
+						},
+						updateLinks: (para) => {
+							const { linkMatch, getNewPath } = para;
 							const nodes = Array.from(drawView.canvasNodeFactory.nodes.entries()).map(value => {
 								const [id, refNode] = value;
 								const getLinkInfo = (node: CanvasFileNode) => {
@@ -596,65 +603,52 @@ export const dragExtension = (plugin: CardNote) => {
 								const elements = drawView.excalidrawAPI.getSceneElements().filter((e) => e.id === node.id);
 								elements.forEach(elem => {
 									drawView.excalidrawData.elementLinks.set(node.id, node.link.text!);
-								//@ts-ignore
+									//@ts-ignore
 									ExcalidrawLib.mutateElement(elem, { link: node.link.text });
 								})
 							}
 							);
 							drawView.setDirty(99);
 							drawView.updateScene({});
-
 						}
-						return {
-							...para,
-							textFile,
-						};
 					});
 			} else if (isObsidianCanvasView(drawView)) {
 				const pos = drawView.canvas.posFromEvt(e);
-				createFileAndDraw(
-					drawView,
-					(target) => {
-					if (typeof (target) !== 'string') {
-					drawView.canvas.createFileNode({
-						file: target.file,
-						pos,
-						subpath: target.subpath,
-						save: true,
-					});
-					}
-					else {
-						drawView.canvas.createTextNode({
-							text: target,
-							pos,
-							save: true,
-						});
-					}
-				},
-					(para) => {
-						const { linkMatch, getNewPath, canvas } = para;
-						const findSelf = canvas.find(canvas => canvas === drawView.file?.path);
-						if (findSelf) {
-							drawView.canvas.nodes.forEach((node, id) => {
-								const path = (node: CanvasFileNode): LinkPath => ({
-									path: node.filePath,
-									file: node.file,
-									subpath: node.subpath
-								});
-								if (isCanvasFileNode(node) && linkMatch(path(node))) {
-									const newPath = getNewPath(path(node));
-									node.setFilePath(newPath.file.path, newPath.subpath ?? "");
-								}
+				createFileAndDraw({
+					located: drawView,
+					draw: (target) => {
+						if (typeof (target) !== 'string') {
+							drawView.canvas.createFileNode({
+								file: target.file,
+								pos,
+								subpath: target.subpath,
+								save: true,
 							});
-							//drawView.canvas.requestSave();
-							return {
-								...para,
-								canvas: canvas.filter(canvas => canvas !== findSelf),
-							};
 						}
-						return para;
+						else {
+							drawView.canvas.createTextNode({
+								text: target,
+								pos,
+								save: true,
+							});
+						}
+					},
+					updateLinks: (para) => {
+						const { linkMatch, getNewPath } = para;
+						drawView.canvas.nodes.forEach((node, id) => {
+							const path = (node: CanvasFileNode): LinkPath => ({
+								path: node.filePath,
+								file: node.file,
+								subpath: node.subpath
+							});
+							if (isCanvasFileNode(node) && linkMatch(path(node))) {
+								const newPath = getNewPath(path(node));
+								node.setFilePath(newPath.file.path, newPath.subpath ?? "");
+							}
+						});
+					//drawView.canvas.requestSave();
 					}
-					,);
+				});
 			}
 		};
 		const displayContentWhenDragging = (e: DragEvent) => {
