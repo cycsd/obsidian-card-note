@@ -441,6 +441,30 @@ async function extractSelect(
 
 	};
 	if (action.type === 'createFile') {
+
+		const updateConfig = () => {
+			if (activeFile?.fileEditor?.file) {
+				const sourceFile = activeFile.fileEditor.file;
+				const match = (link: LinkPath) =>
+					(link.path === sourceFile.path || link.file === sourceFile)
+					&& link.subpath !== undefined
+					&& subpathSet.contains(link.subpath);
+				const createNewPath = (oldPath: LinkPath): LinkFilePath => {
+					return plugin.createLinkText(newFile, oldPath.subpath, oldPath.displayText);
+				};
+				//update vault internal link
+				const [blocks, headings] = getLinkBlocks(extract, sourceFile, plugin);
+				const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(cache => `#${plugin.normalizeHeadingToLinkText(cache.heading)}`)];
+				return {
+					sourceFile,
+					match,
+					createNewPath,
+					subpathSet,
+				}
+			}
+		}
+
+		const config = updateConfig();
 		//replace editor's select line or text with link
 		const filePath = action.file.fileName;
 		const newFile = await plugin.app.vault.create(filePath, extract.content);
@@ -459,19 +483,8 @@ async function extractSelect(
 			view.dispatch(trans);
 		};
 		replaceTextWithLink();
-		if (activeFile?.fileEditor?.file) {
-			const sourceFile = activeFile.fileEditor.file;
-			//update vault internal link
-			const [blocks, headings] = getLinkBlocks(extract, sourceFile, plugin);
-			const subpathSet = [...blocks.map(block => `#^${block.id}`), ...headings.map(cache => `#${plugin.normalizeHeadingToLinkText(cache.heading)}`)];
-			const match = (link: LinkPath) =>
-				(link.path === sourceFile.path || link.file === sourceFile)
-				&& link.subpath !== undefined
-				&& subpathSet.contains(link.subpath);
-			const createNewPath = (oldPath: LinkPath): LinkFilePath => {
-				return plugin.createLinkText(newFile, oldPath.subpath, oldPath.displayText);
-
-			};
+		if (config && config.subpathSet.length !== 0) {
+			const { sourceFile, createNewPath, match } = config;
 			await updateInternalLinks(sourceFile, createNewPath, match, [sourceFile, newFile]);
 		}
 		whiteboard.draw(newFileLink);
@@ -644,9 +657,12 @@ export const dragExtension = (plugin: CardNote) => {
 							if (isCanvasFileNode(node) && linkMatch(path(node))) {
 								const newPath = getNewPath(path(node));
 								node.setFilePath(newPath.file.path, newPath.subpath ?? "");
+								//node.canvas.requestSave();
+								// need to save for each node
+								//if save after all node complete set file path the content in node editor is not correct
 							}
 						});
-					//drawView.canvas.requestSave();
+						drawView.canvas.requestSave();
 					}
 				});
 			}

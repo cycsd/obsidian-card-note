@@ -31,6 +31,7 @@ export interface ObsidianCanvas {
 export type CanvasNode = CanvasFileNode | CanvasTextNode
 export interface CanvasFileNode extends CanvasNodeData {
 	file: TFile,
+	canvas:ObsidianCanvas,
 	setFilePath: (filePath: string, subpath: string) => void,
 	filePath: string,
 	subpath: string,
