@@ -25,7 +25,7 @@ This tool help you create a new note and insert its link into the canvas. Let yo
   e.g. heading, paragraph, bullet list ...
 
 # Translate
-[繁體中文](/TRANSLATING_ZHTW.md)
+[繁體中文](https://github.com/cycsd/obsidian-card-note/blob/main/TRANSLATING_ZHTW.md)
 
 # Example
 ## Obsidian Canvas
