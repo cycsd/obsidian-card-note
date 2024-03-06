@@ -4,11 +4,13 @@ import {
 	CacheItem,
 	HeadingCache,
 	LinkCache,
+	MarkdownRenderer,
 	Plugin,
 	PluginSettingTab,
 	Setting,
 	TFile,
 	TextFileView,
+	WorkspaceSplit,
 	normalizePath,
 } from "obsidian";
 import { LinkFilePath, LinkPath, dragExtension } from "src/dragUpdate";
@@ -252,6 +254,101 @@ export default class CardNote extends Plugin {
 			.map(_ => (16 * Math.random() | 0).toString(16)).join('')
 		return id
 	}
+	addDragAndDropListener(e: DragEvent, content: string, dropEvent: (e: DragEvent) => void) {
+		const trim = content.trim(),
+			display = trim.length > 600 ? trim.substring(0, 600).concat(' ...') : trim;
+
+		const floatingSplits = this.app.workspace.floatingSplit as WorkspaceSplit,
+			popoutWindows = floatingSplits.children.map(win => win.containerEl),
+			allWindows = [this.app.workspace.containerEl].concat(popoutWindows),
+			eventListeners = allWindows.map(container => this.createDraggingAndDropEvent(e, container, display, dropEvent))
+
+		return {
+			reset: () => eventListeners.forEach(listen => listen.reset()),
+		}
+	}
+	createDraggingAndDropEvent(
+		e: DragEvent,
+		container: HTMLElement,
+		content: string,
+		dropEvent: (e: DragEvent) => void) {
+
+		const dragContentEle = document.createElement('div');
+		//plugin's css style doesn't apply to popup window
+		//so assign style via js in this place.
+		dragContentEle.hide();
+		dragContentEle.style.transform = `translate(${e.clientX}px,${e.clientY}px)`;
+		dragContentEle.style.width = '300px';
+		dragContentEle.style.height = 'min-content';
+		//dragContentEle.style.minHeight = '200px';
+		dragContentEle.style.position = 'absolute';
+		dragContentEle.style.padding = '5px 25px';
+		dragContentEle.style.borderWidth = '3px';
+		dragContentEle.style.borderRadius = '10px';
+		dragContentEle.style.border = 'solid';
+		//https://stackoverflow.com/questions/55095367/while-drag-over-the-absolute-element-drag-leave-event-has-been-trigger-continuo
+		//closing pointer events can prevent dragbackground's dragleave event be triggerd when the mouse move quickly from background to dragcontent element.
+		dragContentEle.style.pointerEvents = 'none';
+
+		const dragoverBackground = document.createElement('div');
+
+		dragoverBackground.setCssStyles({
+			opacity: '0',
+			width: '100%',
+			height: '100%',
+			position: 'fixed'
+		})
+		console.log('render content', content);
+		MarkdownRenderer.render(
+			this.app,
+			content,
+			dragContentEle,
+			'',
+			this
+		)
+		//need to add dragoverBackground to the container, 
+		//let your dragover event be triggerd correctly when your mouse move over the embedded iframe.
+		container.appendChild(dragoverBackground);
+		container.appendChild(dragContentEle);
+		//console.log('container', container);
+		const showDragContent = (e: DragEvent) => {
+			dragContentEle.show();
+			//e.preventDefault();
+		}
+		const moveDragContent = (e: DragEvent) => {
+			const x = e.clientX,
+				y = e.clientY;
+			dragContentEle.style.transform = `translate(${x}px,${y}px)`;
+			//https://stackoverflow.com/questions/27361925/unable-to-detect-the-drop-event-in-chrome-extension-when-dropped-a-file
+			//use preventDefault here then the drop event will trigger correctly
+			e.preventDefault();
+		}
+		const hideDragContent = (e: DragEvent) => {
+			//e.preventDefault();
+			// the dragleave event will be triggerd by child elements in the container not only the background element.
+			if (e.target === dragoverBackground) {
+				console.log('when did you triger leave event? this will hide content', e.target)
+				dragContentEle.hide();
+			}
+		}
+
+		this.registerDomEvent(container, 'dragenter', showDragContent);
+		this.registerDomEvent(container, 'dragover', moveDragContent);
+		this.registerDomEvent(container, 'dragleave', hideDragContent);
+		this.registerDomEvent(container, 'drop', dropEvent)
+
+		return {
+			reset: () => {
+				container.removeChild(dragContentEle);
+				container.removeChild(dragoverBackground);
+				container.removeEventListener('drop', dropEvent)
+				container.removeEventListener('dragover', moveDragContent);
+				container.removeEventListener('dragenter', showDragContent);
+				container.removeEventListener('dragleave', hideDragContent);
+			}
+		}
+	}
+
 }
 
 class CardNoteTab extends PluginSettingTab {

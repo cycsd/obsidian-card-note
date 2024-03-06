@@ -144,7 +144,7 @@ declare module "obsidian" {
     floatingSplit: WorkspaceSplit;
   }
   interface WorkspaceSplit {
-    children: any[];
+	  children: SplitItem[];
   }
   interface WorkspaceLeaf {
     containerEl: HTMLElement;
@@ -175,7 +175,13 @@ declare module "obsidian" {
   }
   interface EditorSuggest<T> {
     suggestEl: HTMLElement;
-  }
+	}
+	interface SplitItem {
+		id: string,
+		containerEl: HTMLElement,
+		doc?: Document,
+
+	}
 	interface SectionCache {
 		type: 'heading' | 'list' | 'paragraph' | 'blockquote' | string;
 	}

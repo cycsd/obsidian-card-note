@@ -563,11 +563,9 @@ async function extractSelect(
 }
 export const dragExtension = (plugin: CardNote) => {
 	const addDragStartEvent = (dragSymbol: HTMLElement, view: EditorView) => {
-		const container = plugin.app.workspace.containerEl;
-		let ghost: HTMLElement;
-		let dragoverBackground: HTMLElement;
 		let info: UserSelection;
 		let source: FileEditor | undefined;
+		let listener: { reset: () => void };
 		const handleDrop = async (e: DragEvent) => {
 			const createFileAndDraw = async (
 				whiteboard: WhiteBoard,
@@ -667,17 +665,6 @@ export const dragExtension = (plugin: CardNote) => {
 				});
 			}
 		};
-		const displayContentWhenDragging = (e: DragEvent) => {
-			if (ghost) {
-				const pos = getPosition(e);
-				moveElement(ghost, pos.x, pos?.y);
-				if (!ghost.isShown()) {
-					ghost.show();
-				}
-			}
-			e.preventDefault();
-		};
-		//dragSymbol.addEventListener("drag", displayContentWhenDragging);
 		dragSymbol.addEventListener("dragstart", (e) => {
 			source = plugin.getActiveEditorFile();
 
@@ -744,42 +731,14 @@ export const dragExtension = (plugin: CardNote) => {
 			//Drag table will cause dragend event would be triggerd immediately at dragstart
 			//https://stackoverflow.com/questions/19639969/html5-dragend-event-firing-immediately
 			setTimeout(() => {
-				if (!ghost) {
-					const div = document.createElement("div");
-					//set position to absolute and append it to body to show custom element when dragging
-					div.addClass("ghost");
-					div.hide();
-					moveElement(div, e.clientX, e.clientY);
-					const bg = document.createElement("div");
-					bg.addClass("dragbackground");
-					dragoverBackground = container.appendChild(bg);
-					ghost = container.appendChild(div);
-				}
-				else {
-					ghost = container.appendChild(ghost);
-					dragoverBackground = container.appendChild(dragoverBackground);
-				}
-				MarkdownRenderer.render(
-					plugin.app,
-					info.content,
-					ghost,
-					"",
-					plugin);
+				listener = plugin.addDragAndDropListener(e, info.content, handleDrop);
 			});
-			plugin.registerDomEvent(container, "drop", handleDrop);
-			plugin.registerDomEvent(container, "dragover", displayContentWhenDragging);
+
 		});
 
-		const reset = () => {
-			container.removeEventListener("drop", handleDrop);
-			container.removeEventListener("dragover", displayContentWhenDragging);
-			container.removeChild(ghost);
-			container.removeChild(dragoverBackground);
-			ghost.replaceChildren();
-		};
 
 		return {
-			reset,
+			reset: () => listener?.reset(),
 		};
 	};
 	const dragMarker = new (class extends GutterMarker {
