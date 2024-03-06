@@ -3,9 +3,9 @@ import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language";
 import { Break, ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties, BLOCKIDREPLACE, listItemParser } from "src/utility";
-import { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, MarkdownRenderer, SectionCache, TFile } from "obsidian";
+import { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, SectionCache, TFile } from "obsidian";
 import { BaseAction, FileNameCheckModal, FileNameModelConfig, UserAction } from "src/ui";
-import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView, isObsidianMarkdownEmbeded } from "src/adapters/obsidian-excalidraw-plugin";
+import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
@@ -205,12 +205,7 @@ async function userAction(plugin: CardNote, section: Section, selected: UserSele
 	});
 	return action;
 }
-function moveElement(elm: HTMLElement, x: number, y: number) {
-	elm.style.transform = `translate(${x}px,${y}px)`;
-}
-function getPosition(e: DragEvent) {
-	return { x: e.clientX, y: e.clientY };
-}
+
 function getSection(source: FileEditor | undefined, selected: UserSelection, plugin: CardNote): Section {
 	if (source && source?.fileEditor?.file instanceof TFile && selected.type !== 'mutiple') {
 		const { offset, fileEditor } = source,

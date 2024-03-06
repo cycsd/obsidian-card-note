@@ -298,7 +298,7 @@ export default class CardNote extends Plugin {
 			height: '100%',
 			position: 'fixed'
 		})
-		console.log('render content', content);
+
 		MarkdownRenderer.render(
 			this.app,
 			content,
@@ -310,7 +310,7 @@ export default class CardNote extends Plugin {
 		//let your dragover event be triggerd correctly when your mouse move over the embedded iframe.
 		container.appendChild(dragoverBackground);
 		container.appendChild(dragContentEle);
-		//console.log('container', container);
+
 		const showDragContent = (e: DragEvent) => {
 			dragContentEle.show();
 			//e.preventDefault();
@@ -327,7 +327,6 @@ export default class CardNote extends Plugin {
 			//e.preventDefault();
 			// the dragleave event will be triggerd by child elements in the container not only the background element.
 			if (e.target === dragoverBackground) {
-				console.log('when did you triger leave event? this will hide content', e.target)
 				dragContentEle.hide();
 			}
 		}
