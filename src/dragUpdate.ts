@@ -244,8 +244,17 @@ function getSection(source: FileEditor | undefined, selected: UserSelection, plu
 		const blockCache = findCorrespondBlock(),
 			getList = (): ListBlock & { name?: string } | undefined => {
 				const listItem = fileCache?.listItems?.find(item => {
-					return item.position.start.offset >= selected.selection.from + offset
-						&& item.position.end.offset <= selected.selection.to + offset
+					const listStartPosition = item.position.start,
+						listEndPosition = item.position.end,
+						listStart = listStartPosition.offset,
+						listEnd = listEndPosition.offset,
+						listLineStart = listStart - listStartPosition.col,
+						selectStart = selected.selection.from + offset,
+						selectEnd = selected.selection.to + offset;
+
+					return selectStart >= listLineStart
+						&& (listStart >= selectStart
+							&& listEnd <= selectEnd)
 				});
 				if (listItem) {
 					return {
