@@ -660,8 +660,6 @@ export const dragExtension = (plugin: CardNote) => {
 								const newPath = getNewPath(path(node));
 								node.setFilePath(newPath.file.path, newPath.subpath ?? "");
 								//node.canvas.requestSave();
-								// need to save for each node
-								//if save after all node complete set file path the content in node editor is not correct
 							}
 						});
 						drawView.canvas.requestSave();
@@ -735,7 +733,7 @@ export const dragExtension = (plugin: CardNote) => {
 			//Drag table will cause dragend event would be triggerd immediately at dragstart
 			//https://stackoverflow.com/questions/19639969/html5-dragend-event-firing-immediately
 			setTimeout(() => {
-				listener = plugin.addDragAndDropListener(e, info.content, handleDrop);
+				listener = plugin.listenDragAndDrop(e, info.content, handleDrop);
 			});
 
 		});

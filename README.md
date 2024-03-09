@@ -13,7 +13,7 @@
     <h3 align='center'>⚡ Extract your thoughts more quickly</h3>
 </p>
 
-This tool help you create a new note and insert its link into the canvas. Let you quickly building visualized notes on [Obsidian Canvas](https://obsidian.md/canvas) and the [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin) by *"Drag and Drop"*.
+This tool help you create a new note and insert its link into the canvas. Let you quickly build visualized notes on [Obsidian Canvas](https://obsidian.md/canvas) and the [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin) by *"Drag and Drop"*.
 
 
 # Features

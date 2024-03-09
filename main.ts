@@ -254,7 +254,7 @@ export default class CardNote extends Plugin {
 			.map(_ => (16 * Math.random() | 0).toString(16)).join('')
 		return id
 	}
-	addDragAndDropListener(e: DragEvent, content: string, dropEvent: (e: DragEvent) => void) {
+	listenDragAndDrop(e: DragEvent, content: string, dropEvent: (e: DragEvent) => void) {
 		const trim = content.trim(),
 			display = trim.length > 600 ? trim.substring(0, 600).concat(' ...') : trim;
 
