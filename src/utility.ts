@@ -72,7 +72,7 @@ export async function ReCheck<T, R = T, R2 = R>(config: CheckConfig<T, R, R2>): 
 			else {
 				return validResult;
 			}
-		} catch (error) {
+		} catch (error: any) {
 			args = config.update(args);
 			errorMessage = error.message;
 			continue;

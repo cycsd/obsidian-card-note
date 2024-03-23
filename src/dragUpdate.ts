@@ -149,7 +149,7 @@ async function userAction(plugin: CardNote, section: Section, selected: UserSele
 				.open();
 		});
 	};
-	const provide = async (arg: ReNameConfig, unvalid: UserAction | undefined, error: string) => {
+	const provide = async (arg: ReNameConfig, unvalid: UserAction | undefined, error: string | undefined) => {
 		if (unvalid?.type !== 'cancel' && unvalid?.type !== 'cut') {
 			const newName = unvalid?.newName;
 			const name = newName && newName.length !== 0 ? newName : arg.name;

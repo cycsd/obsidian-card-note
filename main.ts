@@ -16,7 +16,7 @@ import {
 import { LinkFilePath, LinkPath, dragExtension } from "src/dragUpdate";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import { FILENAMEREPLACE, FileInfo, HEADINGREPLACE, LinkInfo, LinkToChanges, RequiredProperties, createFullPath } from "src/utility";
-import { CanvasData, CanvasFileData } from "obsidian/canvas";
+import { CanvasData, CanvasFileData, type AllCanvasNodeData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 
 
@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 	defaultFolder: "",
 };
 export default class CardNote extends Plugin {
-	settings: CardNoteSettings;
+	settings: CardNoteSettings = DEFAULT_SETTINGS;
 
 	async onload() {
 		await this.loadSettings();
@@ -155,7 +155,7 @@ export default class CardNote extends Plugin {
 		}
 		return queue
 	}
-	updateCanvasNodes(canvasPath: string, newNode: (node: CanvasFileData) => CanvasFileData) {
+	updateCanvasNodes(canvasPath: string, newNode: (node: AllCanvasNodeData) => AllCanvasNodeData) {
 		const canvasFile = this.app.vault.getAbstractFileByPath(canvasPath);
 			if (canvasFile instanceof TFile && canvasFile.extension === 'canvas') {
 				return this.app.vault.process(canvasFile, data => {
