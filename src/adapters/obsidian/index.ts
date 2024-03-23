@@ -1,6 +1,6 @@
 import { TextFileView } from "obsidian";
-import { CanvasFileNode, CanvasNode, CanvasView } from "./types/canvas";
-import { ObsidianCanvasNode } from "obsidian-excalidraw-plugin/lib/utils/CanvasNodeFactory";
+import type { CanvasFileNode, CanvasNode, CanvasView } from "./types/canvas";
+import type { ObsidianCanvasNode } from "obsidian-excalidraw-plugin/lib/utils/CanvasNodeFactory";
 
 
 export const OBSIDIAN_CANVAS = "canvas";

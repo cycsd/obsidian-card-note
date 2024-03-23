@@ -1,7 +1,9 @@
 import CardNote from "main";
 import { Modal, Setting, TextComponent } from "obsidian";
-import { BaseReferenceSection, Section, isHeadingBlock } from "src/dragUpdate"
-import { BLOCKIDREPLACE, FileInfo, FILENAMEREPLACE } from "src/utility";
+import type { BaseReferenceSection, Section, } from "src/dragUpdate"
+import { isHeadingBlock } from "src/dragUpdate"
+import type { FileInfo, } from "src/utility";
+import { BLOCKIDREPLACE, FILENAMEREPLACE } from "src/utility";
 
 
 export type CreateFile = {

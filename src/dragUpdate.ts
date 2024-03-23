@@ -2,13 +2,18 @@ import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language";
-import { Break, ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, LinkInfo, RequiredProperties, BLOCKIDREPLACE, listItemParser } from "src/utility";
-import { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, SectionCache, TFile } from "obsidian";
-import { BaseAction, FileNameCheckModal, FileNameModelConfig, UserAction } from "src/ui";
+import type { Break, LinkInfo, RequiredProperties, } from "src/utility";
+import {
+	ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, BLOCKIDREPLACE, listItemParser
+} from "src/utility";
+import type { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, SectionCache, } from "obsidian";
+import { TFile } from "obsidian";
+import type { BaseAction, FileNameModelConfig, UserAction } from "src/ui";
+import { FileNameCheckModal } from "src/ui";
 import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
-import { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
-import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
+import type { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
+import type { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 //import { syntaxTree } from "@codemirror/language";
 
 type WhiteBoard = {

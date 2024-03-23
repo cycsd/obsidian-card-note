@@ -7,9 +7,9 @@ export type { ExcalidrawImperativeAPI, Point } from "@zsviczian/excalidraw/types
 import { getEA as excalidrawGetEA } from "obsidian-excalidraw-plugin";
 import { ExcalidrawAutomate } from "obsidian-excalidraw-plugin/lib/ExcalidrawAutomate"
 //import { ExcalidrawView }  from "obsidian-excalidraw-plugin/lib/ExcalidrawView";
-import { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
-import { ObsidianCanvasNode } from "obsidian-excalidraw-plugin/lib/utils/CanvasNodeFactory";
-import { ObsidianMarkdownEmbeded } from "./types/ExcalidrawAutomate";
+import type { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
+//import type { ObsidianCanvasNode } from "obsidian-excalidraw-plugin/lib/utils/CanvasNodeFactory";
+import type { ObsidianMarkdownEmbeded } from "./types/ExcalidrawAutomate";
 //no export in source file
 //import { ExcalidrawLibs } from 'src/adapters/obsidian-excalidraw-plugin/types/ExcalidrawLib'
 

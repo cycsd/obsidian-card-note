@@ -1,5 +1,5 @@
 import CardNote from "main";
-import { Changes, ChangeInfo, LinkCache } from "obsidian";
+import type { Changes, ChangeInfo, LinkCache } from "obsidian";
 
 
 

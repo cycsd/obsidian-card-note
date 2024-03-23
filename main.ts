@@ -1,9 +1,6 @@
+import type { BlockCache, CacheItem, HeadingCache, LinkCache, } from "obsidian"
 import {
 	App,
-	BlockCache,
-	CacheItem,
-	HeadingCache,
-	LinkCache,
 	MarkdownRenderer,
 	Plugin,
 	PluginSettingTab,
@@ -13,10 +10,12 @@ import {
 	WorkspaceSplit,
 	normalizePath,
 } from "obsidian";
-import { LinkFilePath, LinkPath, dragExtension } from "src/dragUpdate";
+import type { LinkFilePath, LinkPath } from "src/dragUpdate";
+import { dragExtension } from "src/dragUpdate";
 import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
-import { FILENAMEREPLACE, FileInfo, HEADINGREPLACE, LinkInfo, LinkToChanges, RequiredProperties, createFullPath } from "src/utility";
-import { CanvasData, CanvasFileData, type AllCanvasNodeData } from "obsidian/canvas";
+import type { FileInfo, LinkInfo, RequiredProperties, } from "src/utility";
+import { FILENAMEREPLACE, HEADINGREPLACE, LinkToChanges, createFullPath } from "src/utility";
+import type { CanvasData, CanvasFileData, AllCanvasNodeData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 
 
