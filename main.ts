@@ -1,4 +1,4 @@
-import type { BlockCache, CacheItem, HeadingCache, LinkCache, } from "obsidian"
+import type { BlockCache, CacheItem, HeadingCache, LinkCache, WorkspaceLeaf, } from "obsidian"
 import {
 	App,
 	MarkdownRenderer,
@@ -17,6 +17,7 @@ import type { FileInfo, LinkInfo, RequiredProperties, } from "src/utility";
 import { FILENAMEREPLACE, HEADINGREPLACE, LinkToChanges, createFullPath } from "src/utility";
 import type { CanvasData, CanvasFileData, AllCanvasNodeData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
+import { CardSearchView, VIEW_TYPE_CARDNOTESEARCH } from "src/view/cardSearchView";
 
 
 
@@ -37,8 +38,35 @@ export default class CardNote extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		this.registerEditorExtension(dragExtension(this));
+		this.registerView(
+			VIEW_TYPE_CARDNOTESEARCH,
+			(leaf) => new CardSearchView(leaf)
+		)
+		this.addRibbonIcon("dice",
+			"Notes",
+			() => this.activateView())
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
+	}
+	async activateView() {
+		const { workspace } = this.app;
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_CARDNOTESEARCH),
+			createNewLeaf = async () => {
+				const newLeaf = workspace.getLeaf('split');
+				await newLeaf?.setViewState({
+					type: VIEW_TYPE_CARDNOTESEARCH,
+					active: true,
+				})
+				return newLeaf
+			};
+
+
+		let leaf = leaves.length > 0
+			? leaves[0]
+			: await createNewLeaf()
+
+		workspace.revealLeaf(leaf!)
+
 	}
 	onunload() { }
 
