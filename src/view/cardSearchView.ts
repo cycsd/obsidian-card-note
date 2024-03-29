@@ -1,5 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
-import Search from './components/Search.svelte'
+import Search from "./components/Search.svelte"
+
 
 export const VIEW_TYPE_CARDNOTESEARCH = "card-note-search-view"
 export class CardSearchView extends ItemView {
@@ -16,6 +17,9 @@ export class CardSearchView extends ItemView {
     protected async onOpen(): Promise<void> {
         this.component = new Search({
             target: this.containerEl.children[1],
+            props: {
+                view: this,
+            },
         })
     }
 }
