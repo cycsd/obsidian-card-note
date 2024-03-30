@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MarkdownRenderer, type TFile } from "obsidian";
+	import { MarkdownRenderer, SliderComponent, type TFile } from "obsidian";
 	import { onMount } from "svelte";
     import { FixedSizeGrid as Grid, styleString as sty, type GridChildComponentProps, type StyleObject } from 'svelte-window'
     import AutoSizer from 'svelte-virtualized-auto-sizer'
@@ -10,7 +10,8 @@
     export let view:CardSearchView
     //export let renderMethod:()=>(node:HTMLElement,file:TFile,content:string)=>void
     
-    const columnWidth = 250;
+    let columnWidth = 250;
+    let rowHeight = 250;
     const gap = 20;
 
     let files:TFile[];
@@ -20,11 +21,29 @@
     onMount(()=>{
         files = view.app.vault.getMarkdownFiles();
     })
+    const columnWidthSetting =(ele:HTMLElement)=>{
+        new SliderComponent(ele)
+        .setLimits(200,1000,10)
+        .setDynamicTooltip()
+        .onChange(value=>{
+            columnWidth = value;
+        }
+        )
+    }
+    const rowHeightSetting = (ele:HTMLElement)=>{
+        new SliderComponent(ele)
+        .setLimits(200,1000,10)
+        .setDynamicTooltip()
+        .onChange(value=>{
+            rowHeight = value;
+        }
+        )
+    }
     const index = (com:GridChildComponentProps,columnCount:number)=>{
         const dataBefore = com.rowIndex*columnCount,
         columOffest = com.columnIndex+1,
         dataCount = dataBefore+columOffest;
-        console.log("row:",com.rowIndex,"column:",com.columnIndex,"data index",dataCount)
+        // console.log("row:",com.rowIndex,"column:",com.columnIndex,"data index",dataCount)
         return dataCount<files.length?dataCount:null
     }
     const showDetail = async (content:string,file:TFile,width:number|undefined)=>{
@@ -61,6 +80,8 @@ return {
     
 </script>
 
+<div use:columnWidthSetting> column width</div>
+<div use:rowHeightSetting> row height</div>
     <AutoSizer let:width={childWidth} let:height={childHeight}>
          <!-- <p on:click={e=>{console.log(grid)}}>width:{childWidth} height:{childHeight}</p> -->
          <div bind:this={detailPlane} style:position='fixed'></div>
@@ -77,7 +98,7 @@ return {
   columnWidth={columnWidth+gap}
   height={childHeight??500}
   rowCount={gridProps.rows}
-  rowHeight={200+gap}
+  rowHeight={rowHeight+gap}
   width={childWidth??500}
   useIsScrolling
   let:items>

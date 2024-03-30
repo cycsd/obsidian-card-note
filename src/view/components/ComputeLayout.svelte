@@ -19,4 +19,4 @@
 
     //     };
 </script>
-<slot  gridProps={{columns,rows,viewHeight}}></slot>
+<slot  gridProps={{columns:columns===0?1:columns,rows,viewHeight}}></slot>

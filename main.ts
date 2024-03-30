@@ -40,10 +40,10 @@ export default class CardNote extends Plugin {
 		this.registerEditorExtension(dragExtension(this));
 		this.registerView(
 			VIEW_TYPE_CARDNOTESEARCH,
-			(leaf) => new CardSearchView(leaf)
+			(leaf) => new CardSearchView(leaf, this)
 		)
-		this.addRibbonIcon("dice",
-			"Notes",
+		this.addRibbonIcon("scan-search",
+			"Search Notes",
 			() => this.activateView())
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
@@ -373,6 +373,13 @@ export default class CardNote extends Plugin {
 				container.removeEventListener('dragleave', hideDragContent);
 			}
 		}
+	}
+
+	getDropView(e: DragEvent) {
+		const locate = this.app.workspace.getDropLocation(e),
+			target = locate.children.find(child => child.tabHeaderEl.className.contains("active")),
+			drawView = target?.view;
+		return drawView
 	}
 
 }
