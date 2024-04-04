@@ -101,6 +101,8 @@ export default class CardNote extends Plugin {
 			const display = displayText ? `|${displayText}` : '';
 			return `[[${fullLinkPath}${display}]]`;
 		}
+		//this.app.fileManager.generateMarkdownLink()
+
 		const linkText = useMarkdownLink ? markdownLink() : wikiLink();
 		return {
 			path: fileLinkPath,
@@ -109,6 +111,7 @@ export default class CardNote extends Plugin {
 			text: linkText,
 			displayText,
 		}
+
 	}
 	getActiveEditorFile() {
 		const view = this.app.workspace.getActiveViewOfType(TextFileView);

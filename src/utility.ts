@@ -1,5 +1,5 @@
 import CardNote from "main";
-import type { Changes, ChangeInfo, LinkCache } from "obsidian";
+import type { Changes, ChangeInfo, LinkCache, CacheItem } from "obsidian";
 
 
 
@@ -9,7 +9,11 @@ export const HEADINGREPLACE = () => /([:#|^\\\r\n]|%%|\[\[|]])/g
 
 export type RequiredProperties<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
 
-
+export const getCacheOffset = (c: CacheItem): [number, number] => {
+	const cacheStart = c.position.start.offset,
+		cacheEnd = c.position.end.offset;
+	return [cacheStart, cacheEnd];
+};
 export function throttle<T extends unknown[], V>(
 	cb: (...args: [...T]) => V,
 	secondTimeout = 0,

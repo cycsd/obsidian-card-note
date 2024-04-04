@@ -7,6 +7,7 @@
 
     let columns:number,
     rows:number;
+
     $: {
         columns =Math.floor(viewWidth/(columnWidth+gap));
         rows = Math.ceil(totalCount/columns);
@@ -19,4 +20,5 @@
 
     //     };
 </script>
+<!-- <div>show totol count in compute:{totalCount}</div> -->
 <slot  gridProps={{columns:columns===0?1:columns,rows,viewHeight}}></slot>
