@@ -1,3 +1,7 @@
+<script lang="ts" context="module">
+
+</script>
+
 <script lang="ts">
 	import {
 		MarkdownRenderer,
@@ -9,6 +13,7 @@
 		prepareSimpleSearch,
 		setIcon,
 		Menu,
+		ButtonComponent,
 	} from "obsidian";
 	import { onMount } from "svelte";
 	import {
@@ -113,6 +118,16 @@
 				rowHeight = value;
 			});
 	};
+	const icon = (ele:HTMLElement,icon:string)=>{
+		new ButtonComponent(ele)
+		.setIcon(icon)
+		// .setCta()
+		.setTooltip('asc')
+//.setDisabled(true)
+		
+		// setIcon(ele,icon);
+	}
+
 	const index = (com: GridChildComponentProps, columnCount: number) => {
 		const dataBefore = com.rowIndex * columnCount,
 			columOffest = com.columnIndex + 1,
@@ -163,6 +178,10 @@
 			<div use:rowHeightSetting>row height</div>
 		</div>	
 		<button use:layoutSetting on:click={showLayoutMenu}></button>
+		<div use:icon={"clock"}></div>
+		<div use:icon={"file-search"}></div>
+		<div use:icon={"arrow-down-narrow-wide"}></div>
+		<div use:icon={"arrow-up-narrow-wide"}></div>
 	</div>
 </div>
 <!-- <div>query: {query}</div>
