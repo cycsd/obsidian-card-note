@@ -27,6 +27,10 @@
 	import { styleString as sty } from "svelte-window";
 	import { isObsidianCanvasView } from "src/adapters/obsidian";
 	import { getCacheOffset, markdownParser } from "src/utility";
+	import {
+		insertEmbeddableOnDrawing,
+		isExcalidrawView,
+	} from "src/adapters/obsidian-excalidraw-plugin";
 
 	export let file: TFile;
 	export let view: CardSearchView;
@@ -54,6 +58,19 @@
 					pos,
 					save: true,
 				});
+			}
+			if (isExcalidrawView(drawView)) {
+				const link = view.app.fileManager.generateMarkdownLink(
+					file,
+					drawView.file?.path ?? "",
+				);
+				insertEmbeddableOnDrawing(
+					drop,
+					drawView,
+					link,
+					file,
+					view.plugin,
+				);
 			}
 		};
 		// the default drag img will drag sibling elements...

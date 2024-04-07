@@ -1,7 +1,3 @@
-<script lang="ts" context="module">
-
-</script>
-
 <script lang="ts">
 	import {
 		MarkdownRenderer,
@@ -30,20 +26,34 @@
 		type FileMatch,
 		type TFileContainer,
 	} from "./PrepareLoad.svelte";
+	import {
+		ascending,
+		descending,
+		getDisplayFiles,
+		sortByCreateTime,
+		sortByModifiedTime,
+		type SEQ,
+		type SortMethod,
+		sortByRelated,
+	} from "./SearchUtil.svelte";
+	import ButtonGroups, { type Button } from "./ButtonGroups.svelte";
 
 	export let view: CardSearchView;
 	//export let renderMethod:()=>(node:HTMLElement,file:TFile,content:string)=>void
 
 	let columnWidth = 250;
 	let rowHeight = 250;
-	const gap = 20;
+	const gutter = 20;
 
 	let originFiles: TFileContainer[] = [];
 	let matchFiles: FileMatch[] = [];
 	let query = "";
+	let sortMethod = sortByModifiedTime;
+	let seq: SEQ = descending;
+	const sortbyCreate = sortByCreateTime;
 
-	$: files = query.length === 0 ? [...originFiles] : [...matchFiles];
-	$: totalCount = files.length;
+	$: files = getDisplayFiles(view, originFiles, query, sortMethod, seq); //query.length === 0 ? [...originFiles] : [...matchFiles];
+	//$: totalCount = files.length;
 
 	let rowCount: number;
 	onMount(() => {
@@ -76,7 +86,11 @@
 		query = searchQuery;
 	};
 	const search = (ele: HTMLElement) => {
-		new SearchComponent(ele).onChange(debounce(fuzzySearch, 1000));
+		new SearchComponent(ele).onChange(
+			debounce((value) => {
+				query = value;
+			}, 1000),
+		);
 	};
 	const layoutSetting = (ele: HTMLElement) => {
 		setIcon(ele, "layout-grid");
@@ -118,37 +132,63 @@
 				rowHeight = value;
 			});
 	};
-	const icon = (ele:HTMLElement,icon:string)=>{
-		new ButtonComponent(ele)
-		.setIcon(icon)
-		// .setCta()
-		.setTooltip('asc')
-//.setDisabled(true)
-		
-		// setIcon(ele,icon);
-	}
+	const sortSeq: Button<SEQ>[] = [
+		{
+			icon: "arrow-down-narrow-wide",
+			toolTip: "asc",
+			value: ascending,
+		},
+		{
+			icon: "arrow-up-narrow-wide",
+			toolTip: "desc",
+			value: descending,
+			active: true,
+		},
+	];
+	const sortMethods: Button<SortMethod>[] = [
+		{
+			icon: "file-plus-2",
+			toolTip: "last created",
+			value: sortByCreateTime,
+		},
+		{
+			icon: "file-clock",
+			toolTip: "last modified",
+			value: sortByModifiedTime,
+			active: true,
+		},
+		{
+			icon: "file-search",
+			toolTip: "related",
+			value: sortByRelated,
+		},
+	];
 
-	const index = (com: GridChildComponentProps, columnCount: number) => {
+	const index = (
+		com: GridChildComponentProps,
+		columnCount: number,
+		totalCount: number,
+	) => {
 		const dataBefore = com.rowIndex * columnCount,
 			columOffest = com.columnIndex + 1,
 			dataCount = dataBefore + columOffest;
 		//console.log("row:", com.rowIndex, "column:", com.columnIndex, "data index", dataCount, 'files lenght', files.length)
-		return dataCount <= files.length ? dataCount - 1 : null;
+		return dataCount <= totalCount ? dataCount - 1 : null;
 	};
 
 	const computeGapStyle = (
 		style: StyleObject,
-		component: GridChildComponentProps,
+		padding: number,
 	): StyleObject => {
-		const top = (style.top ?? 0) + gap,
-			left = (style.left ?? 0) + gap,
+		const top = (style.top ?? 0) + gutter,
+			left = (style.left ?? 0) + gutter + padding,
 			width =
 				typeof style.width === "number"
-					? style.width - gap
+					? style.width - gutter
 					: style.width,
 			height =
 				typeof style.height === "number"
-					? style.height - gap
+					? style.height - gutter
 					: style.height;
 
 		return {
@@ -171,74 +211,104 @@
 
 <div use:search></div>
 <div class="searchMenuBar">
-	<div>{totalCount} results</div>
+	<div>
+		{#await files}
+			...
+		{:then f}
+			{f.length} results
+		{/await}
+	</div>
 	<div class="buttonBar">
 		<div>
 			<div use:columnWidthSetting>column width</div>
 			<div use:rowHeightSetting>row height</div>
-		</div>	
+		</div>
 		<button use:layoutSetting on:click={showLayoutMenu}></button>
-		<div use:icon={"clock"}></div>
-		<div use:icon={"file-search"}></div>
-		<div use:icon={"arrow-down-narrow-wide"}></div>
-		<div use:icon={"arrow-up-narrow-wide"}></div>
+		<!-- <div use:icon={"clock"}></div> -->
+		<ButtonGroups
+			buttons={sortMethods}
+			onclick={(e, value) => {
+				sortMethod = value;
+			}}
+		></ButtonGroups>
+		<!-- <div use:icon={"file-plus-2"}></div>
+		<div use:icon={"file-clock"}></div>
+		<div use:icon={"file-search"}></div> -->
+		<ButtonGroups
+			buttons={sortSeq}
+			onclick={(e, value) => {
+				seq = value;
+			}}
+		></ButtonGroups>
+		<!-- <div use:icon={"arrow-down-narrow-wide"}></div>
+		<div use:icon={"arrow-up-narrow-wide"}></div> -->
 	</div>
 </div>
 <!-- <div>query: {query}</div>
 <div>show total count in search {totalCount}</div> -->
-<AutoSizer let:width={childWidth} let:height={childHeight}>
-	<!-- <p on:click={e=>{console.log(grid)}}>width:{childWidth} height:{childHeight}</p> -->
-	<ComputeLayout
-		viewHeight={childHeight ?? 1000}
-		viewWidth={childWidth ?? 1000}
-		{columnWidth}
-		{gap}
-		{totalCount}
-		let:gridProps
-	>
-		<!-- <div>grid rows: {gridProps.rows}</div> -->
-		<Grid
-			bind:this={grid}
-			columnCount={gridProps.columns}
-			columnWidth={columnWidth + gap}
-			height={childHeight ?? 500}
-			rowCount={gridProps.rows}
-			rowHeight={rowHeight + gap}
-			width={childWidth ?? 500}
-			useIsScrolling
-			let:items
+{#await files}
+	Searching...
+{:then f}
+	<AutoSizer let:width={childWidth} let:height={childHeight}>
+		<!-- <p on:click={e=>{console.log(grid)}}>width:{childWidth} height:{childHeight}</p> -->
+		<ComputeLayout
+			viewHeight={childHeight ?? 1000}
+			viewWidth={childWidth ?? 1000}
+			{columnWidth}
+			gap={gutter}
+			totalCount={f.length}
+			let:gridProps
 		>
-			{#each items as it}
-				<!-- {it.isScrolling ? 'Scrolling' : `Row ${it.rowIndex} - Col ${it.columnIndex}`} -->
+			<!-- <div>grid rows: {gridProps.rows}</div> -->
+			<Grid
+				bind:this={grid}
+				columnCount={gridProps.columns}
+				columnWidth={columnWidth + gutter}
+				height={childHeight ?? 500}
+				rowCount={gridProps.rows}
+				rowHeight={rowHeight + gutter}
+				width={childWidth ?? 500}
+				useIsScrolling
+				let:items
+			>
+				{#each items as it}
+					<!-- {it.isScrolling ? 'Scrolling' : `Row ${it.rowIndex} - Col ${it.columnIndex}`} -->
 
-				{#if index(it, gridProps.columns) !== null}
-					<PrepareLoad
-						{view}
-						source={files[index(it, gridProps.columns) ?? 0]}
-						let:item
-					>
-						<DisplayCard
-							file={item.file}
+					{#if index(it, gridProps.columns, f.length) !== null}
+						<PrepareLoad
 							{view}
-							cellStyle={computeGapStyle(it.style, it)}
-							onOpenFile={openFile}
-							data={item.data}
-						></DisplayCard>
-					</PrepareLoad>
-				{:else}
-					{it.isScrolling
-						? "Scrolling"
-						: `Row ${it.rowIndex} - Col ${it.columnIndex}`}
-				{/if}
-			{/each}
-		</Grid>
-	</ComputeLayout>
-</AutoSizer>
+							source={f[
+								index(it, gridProps.columns, f.length) ?? 0
+							]}
+							let:item
+						>
+							<DisplayCard
+								file={item.file}
+								{view}
+								cellStyle={computeGapStyle(
+									it.style,
+									gridProps.padding,
+								)}
+								onOpenFile={openFile}
+								data={item.data}
+							></DisplayCard>
+						</PrepareLoad>
+					{:else}
+						{it.isScrolling
+							? "Scrolling"
+							: `Row ${it.rowIndex} - Col ${it.columnIndex}`}
+					{/if}
+				{/each}
+			</Grid>
+		</ComputeLayout>
+	</AutoSizer>
+{/await}
 
 <style>
-	.searchMenuBar, .buttonBar{
-		display:flex;
-		align-items:end;
+	.searchMenuBar,
+	.buttonBar {
+		display: flex;
+		align-items: end;
 	}
 	.searchMenuBar {
 		justify-content: space-between;

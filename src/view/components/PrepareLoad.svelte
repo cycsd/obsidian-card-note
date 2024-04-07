@@ -6,7 +6,7 @@
 		content: string;
 		matchResult: SearchResult;
 	};
-
+	export type FileCommon = TFileContainer & Partial<FileMatch>;
 	export type ProcessContent = {
 		conent: Promise<string>;
 	};
@@ -96,7 +96,6 @@
 			},
 		);
 		return sections;
-
 	};
 	const loadingContent = (
 		source: TFileContainer | FileMatch,
