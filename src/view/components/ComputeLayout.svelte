@@ -5,12 +5,14 @@
 	export let gap: number;
 	export let totalCount: number;
 
-	let columns: number, rows: number, residueSpace: number;
+	let columns: number, rows: number, residueSpace: number=0;
 
 	$: {
 		const acutualColumnWidth = columnWidth + gap;
 		columns = Math.floor(viewWidth / acutualColumnWidth);
 		rows = Math.ceil(totalCount / columns);
+		// console.log('compute layout',viewWidth,columns*acutualColumnWidth)
+
 		residueSpace = (viewWidth - columns * acutualColumnWidth) / 2;
 		// console.log("reactive columns:", columns,"reactive rows:",rows)
 	}

@@ -246,11 +246,18 @@
 </div>
 <!-- <div>query: {query}</div>
 <div>show total count in search {totalCount}</div> -->
-{#await files}
-	Searching...
-{:then f}
-	<AutoSizer let:width={childWidth} let:height={childHeight}>
-		<!-- <p on:click={e=>{console.log(grid)}}>width:{childWidth} height:{childHeight}</p> -->
+<AutoSizer let:width={childWidth} let:height={childHeight}>
+	{#await files}
+		Searching...
+	{:then f}
+		<!-- <div>render in move window {f.length}</div> -->
+		<!-- <p
+			on:click={(e) => {
+				console.log(grid);
+			}}
+		>
+			width:{childWidth} height:{childHeight}
+		</p> -->
 		<ComputeLayout
 			viewHeight={childHeight ?? 1000}
 			viewWidth={childWidth ?? 1000}
@@ -293,16 +300,16 @@
 								data={item.data}
 							></DisplayCard>
 						</PrepareLoad>
-					{:else}
+					<!-- {:else}
 						{it.isScrolling
 							? "Scrolling"
-							: `Row ${it.rowIndex} - Col ${it.columnIndex}`}
+							: `Row ${it.rowIndex} - Col ${it.columnIndex}`} -->
 					{/if}
 				{/each}
 			</Grid>
 		</ComputeLayout>
-	</AutoSizer>
-{/await}
+	{/await}
+</AutoSizer>
 
 <style>
 	.searchMenuBar,
