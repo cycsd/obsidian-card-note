@@ -4,7 +4,8 @@
 	};
 	export type FileMatch = TFileContainer & {
 		content: string;
-		matchResult: SearchResult;
+		contentMatchResult?: SearchResult;
+		fileNameMatchResult?: SearchResult;
 	};
 	export type FileCommon = TFileContainer & Partial<FileMatch>;
 	export type ProcessContent = {
@@ -33,8 +34,10 @@
 	export let view: CardSearchView;
 
 	const processMatch = (match: FileMatch): NoteMatchCache[] | undefined => {
-		//const originContent = match.content;
-
+		const contentMatch = match.contentMatchResult;
+		if (contentMatch === undefined) {
+			return;
+		}
 		const touch = (s: SearchMatchPart) => {
 			const [matchStart, matchEnd] = s;
 			// (blockEnd > start && blockEnd <= end)
@@ -55,28 +58,24 @@
 			return matchStart >= start && matchEnd <= end;
 		};
 		const caches = view.app.metadataCache.getFileCache(match.file);
-		const matches: SearchMatches = match.matchResult.matches.map(
-			(mtch): SearchMatchPart => {
-				const [matchStart, matchEnd] = mtch;
+		const extendMatchRange = (mtch: SearchMatchPart) => {
+			const [matchStart, matchEnd] = mtch;
 
-				const extendRange = (c: CacheItem): SearchMatchPart => {
-					const [start, end] = getCacheOffset(c);
-					return [
-						Math.min(start, matchStart),
-						Math.max(end, matchEnd),
-					];
-				};
-				const embeded = caches?.embeds?.find(touch(mtch));
-				if (embeded) {
-					return extendRange(embeded);
-				}
-				const linked = caches?.links?.find(touch(mtch));
-				if (linked) {
-					return extendRange(linked);
-				}
-				return mtch;
-			},
-		);
+			const extendRange = (c: CacheItem): SearchMatchPart => {
+				const [start, end] = getCacheOffset(c);
+				return [Math.min(start, matchStart), Math.max(end, matchEnd)];
+			};
+			const embeded = caches?.embeds?.find(touch(mtch));
+			if (embeded) {
+				return extendRange(embeded);
+			}
+			const linked = caches?.links?.find(touch(mtch));
+			if (linked) {
+				return extendRange(linked);
+			}
+			return mtch;
+		};
+		const matches = contentMatch.matches.map(extendMatchRange);
 		// let sections:NoteMatchCache=[];
 		// let matchIndex:0;
 		const sections: NoteMatchCache[] | undefined = caches?.sections?.map(
@@ -86,7 +85,7 @@
 					? {
 							section,
 							matchResult: {
-								score: match.matchResult.score,
+								score: contentMatch.score,
 								matches: ms,
 							},
 						}

@@ -16,7 +16,13 @@
 		return a.file.stat.ctime - b.file.stat.ctime;
 	}
 	export function sortByRelated(a: FileCommon, b: FileCommon) {
-		return (a.matchResult?.score ?? 0) - (b.matchResult?.score ?? 0);
+		return computeScore(a) - computeScore(b);
+	}
+	function computeScore(value: FileCommon) {
+		return (
+			(value.contentMatchResult?.score ?? -5) +
+			(value.fileNameMatchResult?.score ?? -5)
+		);
 	}
 	async function searchFiles(
 		query: string,
@@ -28,12 +34,14 @@
 				cont: TFileContainer,
 			): Promise<FileMatch | undefined> => {
 				const content = await view.app.vault.cachedRead(cont.file),
-					result = fuzzy(content);
-				if (result) {
+					contentResult = fuzzy(content),
+					fileNameResult = fuzzy(cont.file.name);
+				if (contentResult || fileNameResult) {
 					return {
 						file: cont.file,
 						content,
-						matchResult: result,
+						contentMatchResult: contentResult ?? undefined,
+						fileNameMatchResult: fileNameResult ?? undefined,
 					};
 				}
 			},
@@ -46,17 +54,17 @@
 		view: CardSearchView,
 		origin: TFileContainer[],
 		query: string,
-		sortMethod: SortMethod,
-		seq: "descending" | "ascending",
+		// sortMethod: SortMethod,
+		// seq: "descending" | "ascending",
 	): Promise<TFileContainer[] | FileMatch[]> {
 		console.log("need to be run onece if click same button");
-		const order =
-			seq === descending
-				? (a: FileCommon, b: FileCommon) => -sortMethod(a, b)
-				: sortMethod;
+		// const order =
+		// 	seq === descending
+		// 		? (a: FileCommon, b: FileCommon) => -sortMethod(a, b)
+		// 		: sortMethod;
 
 		return query.length !== 0
-			? (await searchFiles(query, origin, view)).sort(order)
-			: origin.sort(order);
+			? await searchFiles(query, origin, view) //.sort(order)
+			: origin; //.sort(order);
 	}
 </script>

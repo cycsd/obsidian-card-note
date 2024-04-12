@@ -31,6 +31,7 @@
 		insertEmbeddableOnDrawing,
 		isExcalidrawView,
 	} from "src/adapters/obsidian-excalidraw-plugin";
+	import path from "path";
 
 	export let file: TFile;
 	export let view: CardSearchView;
@@ -41,7 +42,7 @@
 	//export let testProps:GridChildComponentProps;
 	//export let index:number|null;
 	//let contentEl:HTMLElement;
-	let showScroll = false;
+	let onHover = false;
 
 	let listener: {
 		reset: () => void;
@@ -233,21 +234,23 @@
 <div
 	on:dragstart={dragCard}
 	on:dragend={reset}
-	on:click={(e) => onOpenFile(file)}
+	on:click={(e) => view.plugin.onClickOpenFile(e,file)}
+	on:mouseenter={(e) => (onHover = true)}
+	on:mouseleave={(e) => (onHover = false)}
 	style={sty(cellStyle)}
-	class={showScroll ? "showScroll" : "hiddenContent"}
+	class={onHover ? "showScroll" : "hiddenContent"}
 	draggable="true"
 >
-	<h2>{file.basename}</h2>
+	{#if onHover && file.parent && file.parent.path !== '/'}
+		<h2>{`${file.parent.path}/${file.basename}`}</h2>
+	{:else}
+		<h2>{file.basename}</h2>
+	{/if}
 	<!-- <h6>{`Row ${testProps.rowIndex} - Col ${testProps.columnIndex}`} : {index}</h6> -->
 	{#await data}
 		<div>loading...</div>
 	{:then cont}
-		<div
-			use:loading={cont}
-			on:mouseenter={(e) => (showScroll = true)}
-			on:mouseleave={(e) => (showScroll = false)}
-		></div>
+		<div use:loading={cont}></div>
 	{/await}
 </div>
 

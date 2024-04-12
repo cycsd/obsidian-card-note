@@ -1,4 +1,4 @@
-import type { BlockCache, CacheItem, HeadingCache, LinkCache, WorkspaceLeaf, } from "obsidian"
+import type { BlockCache, CacheItem, HeadingCache, LinkCache, OpenViewState, WorkspaceLeaf, } from "obsidian"
 import {
 	App,
 	MarkdownRenderer,
@@ -187,17 +187,17 @@ export default class CardNote extends Plugin {
 	}
 	updateCanvasNodes(canvasPath: string, newNode: (node: AllCanvasNodeData) => AllCanvasNodeData) {
 		const canvasFile = this.app.vault.getAbstractFileByPath(canvasPath);
-			if (canvasFile instanceof TFile && canvasFile.extension === 'canvas') {
-				return this.app.vault.process(canvasFile, data => {
-					const canvasData = JSON.parse(data) as CanvasData;
-					const nodeUpdate = canvasData.nodes.map(newNode)
-					const newData: CanvasData = {
-						edges: canvasData.edges,
-						nodes: nodeUpdate,
-					}
-					return JSON.stringify(newData);
-				})
-			}
+		if (canvasFile instanceof TFile && canvasFile.extension === 'canvas') {
+			return this.app.vault.process(canvasFile, data => {
+				const canvasData = JSON.parse(data) as CanvasData;
+				const nodeUpdate = canvasData.nodes.map(newNode)
+				const newData: CanvasData = {
+					edges: canvasData.edges,
+					nodes: nodeUpdate,
+				}
+				return JSON.stringify(newData);
+			})
+		}
 	}
 	updateCanvasLinks(
 		canvasPathSet: string[],
@@ -383,6 +383,16 @@ export default class CardNote extends Plugin {
 			target = locate.children.find(child => child.tabHeaderEl.className.contains("active")),
 			drawView = target?.view;
 		return drawView
+	}
+	onClickOpenFile(e: MouseEvent, file: TFile, openState?: OpenViewState) {
+		const isFnKey = () => e.ctrlKey || e.metaKey;
+		this.app.workspace.getLeaf(
+			isFnKey() && e.shiftKey && e.altKey ? 'window'
+				: isFnKey() && e.altKey ? 'split'
+					: isFnKey() ? 'tab'
+						: false
+		)
+			.openFile(file, openState)
 	}
 
 }
