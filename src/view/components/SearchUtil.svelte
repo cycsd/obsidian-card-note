@@ -24,11 +24,8 @@
 			(value.fileNameMatchResult?.score ?? -5)
 		);
 	}
-	async function searchFiles(
-		query: string,
-		origin: TFileContainer[],
-		view: CardSearchView,
-	) {
+
+	export function search(query: string, view: CardSearchView) {
 		const fuzzy = prepareSimpleSearch(query),
 			searching = async (
 				cont: TFileContainer,
@@ -44,10 +41,17 @@
 						fileNameMatchResult: fileNameResult ?? undefined,
 					};
 				}
-			},
-			finds = (await Promise.all(origin.map(searching))).filter(
-				(file) => file !== undefined,
-			) as FileMatch[];
+			};
+		return searching;
+	}
+	export async function searchFiles(
+		query: string,
+		origin: TFileContainer[],
+		view: CardSearchView,
+	) {
+		const finds = (
+			await Promise.all(origin.map(search(query, view)))
+		).filter((file) => file !== undefined) as FileMatch[];
 		return finds;
 	}
 	export async function getDisplayFiles(

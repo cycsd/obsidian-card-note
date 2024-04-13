@@ -39,6 +39,7 @@
 		type SEQ,
 		type SortMethod,
 		sortByRelated,
+		search as simpleSearch,
 	} from "./SearchUtil.svelte";
 	import ButtonGroups, { type Button } from "./ButtonGroups.svelte";
 	import SortingFiles from "./SortingFiles.svelte";
@@ -46,8 +47,8 @@
 	export let view: CardSearchView;
 	//export let renderMethod:()=>(node:HTMLElement,file:TFile,content:string)=>void
 
-	let columnWidth = 250;
-	let rowHeight = 250;
+	let columnWidth = view.plugin.settings.columnWidth;
+	let rowHeight = view.plugin.settings.rowHeight;
 	let showLayoutMenu = false;
 	const gutter = 20;
 
@@ -94,11 +95,20 @@
 		);
 		const modify = view.app.vault.on(
 			"modify",
-			registerVaultEvent(async (_mF) => {
-				originFiles = originFiles.map((of) =>
-					of.file === _mF ? { file: _mF } : of,
-				);
-				console.log("grid prev tick", grid, "scroll to", offset);
+			registerVaultEvent(async (mf) => {
+				const inMatchFile = async () => {
+					const fs = await files;
+					return fs.find((f) => f.file === mf);
+				};
+				if (
+					query.length === 0 ||
+					(await inMatchFile()) ||
+					(await simpleSearch(query, view)({ file: mf }))
+				)
+					originFiles = originFiles.map((of) =>
+						of.file === mf ? { file: mf } : of,
+					);
+				// console.log("grid prev tick", grid, "scroll to", offset);
 				// await tick();
 				// await files;
 				// grid.scrollTo({
@@ -183,42 +193,59 @@
 		);
 	};
 	const layoutSetting = (ele: HTMLElement) => {
-		setIcon(ele, "layout-grid");
+		const b = new ButtonComponent(ele)
+			.setIcon("layout-grid")
+			.onClick((e) => {
+				if (showLayoutMenu) {
+					b.removeCta();
+				} else {
+					b.setCta();
+				}
+				showLayoutMenu = !showLayoutMenu;
+			});
 	};
-	const showLayoutMenuSetting = (e: MouseEvent) => {
-		showLayoutMenu = !showLayoutMenu;
-		// const menu = new Menu();
-		// // const columneSetting = document.createDiv();
-		// console.log("menu", menu);
-		// menu.setUseNativeMenu(true);
-		// menu.addItem((item) => {
-		// 	item.setTitle("item menu");
-		// 	item;
-		// 	// item.setDisabled(false)
-		// 	console.log("item: ", item);
-		// 	new SliderComponent(item.dom.createEl("button"))
-		// 		.setLimits(200, 1000, 10)
-		// 		.setDynamicTooltip()
-		// 		.onChange((value) => {
-		// 			columnWidth = value;
-		// 		});
-		// });
-		// menu.dom.createDiv();
-		// menu.showAtMouseEvent(e);
-	};
+	// const showLayoutMenuSetting = (e: MouseEvent) => {
+	// 	if (showLayoutMenu) {
+	// 	}
+	// 	showLayoutMenu = !showLayoutMenu;
+	// const menu = new Menu();
+	// // const columneSetting = document.createDiv();
+	// console.log("menu", menu);
+	// menu.setUseNativeMenu(true);
+	// menu.addItem((item) => {
+	// 	item.setTitle("item menu");
+	// 	item;
+	// 	// item.setDisabled(false)
+	// 	console.log("item: ", item);
+	// 	new SliderComponent(item.dom.createEl("button"))
+	// 		.setLimits(200, 1000, 10)
+	// 		.setDynamicTooltip()
+	// 		.onChange((value) => {
+	// 			columnWidth = value;
+	// 		});
+	// });
+	// menu.dom.createDiv();
+	// menu.showAtMouseEvent(e);
+	// };
 	const columnWidthSetting = (ele: HTMLElement) => {
 		new SliderComponent(ele)
 			.setLimits(200, 1000, 10)
+			.setValue(columnWidth)
 			.setDynamicTooltip()
 			.onChange((value) => {
+				view.plugin.settings.columnWidth = value;
+				view.plugin.saveSettings();
 				columnWidth = value;
 			});
 	};
 	const rowHeightSetting = (ele: HTMLElement) => {
 		new SliderComponent(ele)
 			.setLimits(200, 1000, 10)
+			.setValue(rowHeight)
 			.setDynamicTooltip()
 			.onChange((value) => {
+				view.plugin.settings.rowHeight = value;
+				view.plugin.saveSettings();
 				rowHeight = value;
 			});
 	};
@@ -291,7 +318,7 @@
 	};
 	const rememberScrollOffsetForFileUpdate = debounce(
 		(props: GridOnScrollProps) => {
-			console.log("onscroll", props);
+			// console.log("onscroll", props);
 			offset = props;
 		},
 		2000,
@@ -310,7 +337,7 @@
 		grid.scrollTo({ scrollLeft: 0, scrollTop: 1600 });
 	}}
 >
-	click to offset 1600
+	<!-- click to offset 1600 -->
 </div>
 <div class="searchMenuBar">
 	<div>
@@ -321,11 +348,13 @@
 		{/await}
 	</div>
 	<div class="buttonBar">
-		<div>
-			<div use:columnWidthSetting>column width</div>
-			<div use:rowHeightSetting>row height</div>
-		</div>
-		<button use:layoutSetting on:click={showLayoutMenuSetting}></button>
+		{#if showLayoutMenu}
+			<div>
+				<div use:columnWidthSetting>column width</div>
+				<div use:rowHeightSetting>row height</div>
+			</div>
+		{/if}
+		<div use:layoutSetting></div>
 		<!-- <div use:icon={"clock"}></div> -->
 		<ButtonGroups
 			buttons={sortMethods}
@@ -434,7 +463,7 @@
 		/* grid-template-columns: repeat(6, minmax(0, 1fr)); */
 		/* grid-auto-flow: row; */
 		/* grid-auto-columns: min-content; */
-		gap: 5px;
+		gap: 3px;
 		/* min-width: '150px'; */
 		/* max-width: 50%; */
 	}

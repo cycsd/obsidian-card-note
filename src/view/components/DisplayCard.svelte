@@ -20,6 +20,7 @@
 		renderResults,
 		type SearchResult,
 		type CacheItem,
+		Menu,
 	} from "obsidian";
 	import { afterUpdate, onMount } from "svelte";
 	import type { CardSearchView } from "../cardSearchView";
@@ -48,6 +49,16 @@
 		reset: () => void;
 	};
 	let dragSymbol: HTMLElement;
+	const moveFileToTrashFolder = (e: MouseEvent) => {
+		const mn = new Menu().addItem((item) => {
+			item.setIcon("trash-2")
+				.setTitle("delete file")
+				.onClick((c) => {
+					view.app.vault.trash(file, false);
+				});
+		});
+		mn.showAtMouseEvent(e);
+	};
 	const dragCard = (dragStart: DragEvent) => {
 		const createFileInView = (drop: DragEvent) => {
 			const drawView = view.plugin.getDropView(drop);
@@ -125,13 +136,26 @@
 	//     )
 	// }
 	// loading();
+	const getContent = (
+		content: string,
+		section: CacheItem,
+	): [string, number, number] => {
+		const [sectionStart, sectionEnd] = getCacheOffset(section);
+		return [
+			content.substring(sectionStart, sectionEnd),
+			sectionStart,
+			sectionEnd,
+		];
+	};
 	const parseMatchContent = (
 		content: string,
 		section: CacheItem,
 		sr: SearchResult | undefined,
 	) => {
-		const [sectionStart, sectionEnd] = getCacheOffset(section),
-			originContent = content.substring(sectionStart, sectionEnd);
+		const [originContent, sectionStart, sectionEnd] = getContent(
+			content,
+			section,
+		);
 		if (sr === undefined) {
 			return originContent;
 		}
@@ -165,12 +189,39 @@
 					section = noteChache.section,
 					sr = noteChache.matchResult; // new DocumentFragment();
 				//const sectionContainer = document.createDiv(),
+				if (sr) {
+					const openFileOnMatch = async (e: MouseEvent) => {
+						view.plugin.onClickOpenFile(e, file, {
+							eState: {
+								match: {
+									content: (await data).content,
+									matches: sr.matches,
+								},
+							},
+						});
+						e.stopPropagation();
+					};
+					container.onclick = openFileOnMatch;
+					if (section.type === "code") {
+						const [renderContent, sectionStart] = getContent(
+							da.content,
+							section,
+						);
+						renderResults(
+							container,
+							renderContent,
+							sr,
+							-sectionStart,
+						);
+						return;
+					}
+				}
+
 				const renderContent = parseMatchContent(
 					da.content,
 					section,
 					sr,
 				);
-
 				MarkdownRenderer.render(
 					view.app,
 					renderContent,
@@ -234,14 +285,15 @@
 <div
 	on:dragstart={dragCard}
 	on:dragend={reset}
-	on:click={(e) => view.plugin.onClickOpenFile(e,file)}
+	on:click={(e) => view.plugin.onClickOpenFile(e, file)}
+	on:contextmenu={moveFileToTrashFolder}
 	on:mouseenter={(e) => (onHover = true)}
 	on:mouseleave={(e) => (onHover = false)}
 	style={sty(cellStyle)}
 	class={onHover ? "showScroll" : "hiddenContent"}
 	draggable="true"
 >
-	{#if onHover && file.parent && file.parent.path !== '/'}
+	{#if onHover && file.parent && file.parent.path !== "/"}
 		<h2>{`${file.parent.path}/${file.basename}`}</h2>
 	{:else}
 		<h2>{file.basename}</h2>

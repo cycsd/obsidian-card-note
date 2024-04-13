@@ -25,12 +25,16 @@ interface CardNoteSettings {
 	dragSymbol: string,
 	dragSymbolSize?: number,
 	defaultFolder: string,
+	columnWidth: number,
+	rowHeight: number,
 }
 
 const DEFAULT_SETTINGS: CardNoteSettings = {
 	dragSymbol: "💔",
 	dragSymbolSize: 18,
 	defaultFolder: "",
+	columnWidth: 250,
+	rowHeight: 250,
 };
 export default class CardNote extends Plugin {
 	settings: CardNoteSettings = DEFAULT_SETTINGS;
@@ -391,8 +395,7 @@ export default class CardNote extends Plugin {
 				: isFnKey() && e.altKey ? 'split'
 					: isFnKey() ? 'tab'
 						: false
-		)
-			.openFile(file, openState)
+		).openFile(file, openState)
 	}
 
 }
