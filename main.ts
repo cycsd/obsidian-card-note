@@ -395,9 +395,9 @@ export default class CardNote extends Plugin {
 				: isFnKey() && e.altKey ? 'split'
 					: isFnKey() ? 'tab'
 						: false
-		).openFile(file, openState)
+		)
+			.openFile(file, openState)
 	}
-
 }
 
 class CardNoteTab extends PluginSettingTab {

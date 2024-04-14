@@ -1,7 +1,14 @@
 <script lang="ts" context="module">
+	export type MatchWithType = {
+		match: SearchMatchPart;
+		type?: "embeds";
+	};
+	export type SearchResultWithType = Omit<SearchResult, "matches"> & {
+		matches: MatchWithType[];
+	};
 	export type NoteMatchCache = {
 		section: SectionCache;
-		matchResult?: SearchResult;
+		matchResult?: SearchResultWithType;
 	};
 	export type NoteContent = {
 		content: string;
@@ -21,6 +28,7 @@
 		type SearchResult,
 		type CacheItem,
 		Menu,
+		type SearchMatchPart,
 	} from "obsidian";
 	import { afterUpdate, onMount } from "svelte";
 	import type { CardSearchView } from "../cardSearchView";
@@ -33,11 +41,11 @@
 		isExcalidrawView,
 	} from "src/adapters/obsidian-excalidraw-plugin";
 	import path from "path";
+	import { appendFile } from "fs";
 
 	export let file: TFile;
 	export let view: CardSearchView;
 	export let cellStyle: StyleObject;
-	export let onOpenFile: (f: TFile) => void;
 	export let data: Promise<NoteContent>;
 	// export let noteCaches: NoteMatchCache[];
 	//export let testProps:GridChildComponentProps;
@@ -150,7 +158,7 @@
 	const parseMatchContent = (
 		content: string,
 		section: CacheItem,
-		sr: SearchResult | undefined,
+		sr: SearchResultWithType | undefined,
 	) => {
 		const [originContent, sectionStart, sectionEnd] = getContent(
 			content,
@@ -164,18 +172,29 @@
 		let prevEnd = 0;
 		// console.log("file: ", source.file, "matches: ", match.matchResult);
 		sr.matches.forEach((m) => {
-			const [startOffset, endOffset] = m;
+			const [startOffset, endOffset] = m.match;
 			const [start, end] = [startOffset - offset, endOffset - offset];
-			const fragment = originContent.substring(prevEnd, start),
-				cut = originContent.substring(start, end),
-				hightlight = `==${cut}==`;
+			// console.log('prevEnd',prevEnd,'start',start)
+			//對應的段落因為有對 embededs, links 作延伸,故可能有重複
+			if (start >= prevEnd) {
+				const fragment = originContent.substring(prevEnd, start),
+					cut = originContent.substring(start, end),
+					highlight = (origin: string) => `==${origin}==`;
 
-			console.log("match cut: ", cut);
-			newContent += fragment + hightlight;
-			prevEnd = end;
+				const append =
+					m.type === "embeds"
+						? fragment + highlight(cut.substring(1)) + cut //highlight without symbol '!'
+						: fragment + highlight(cut);
+				// console.log("match cut: ", cut);
+				newContent += append;
+				// console.log('tempContent',newContent,"fragment: ", fragment,'hightlight: ',hightlight);
+				prevEnd = end;
+			}
 		});
 		const residue = originContent.substring(prevEnd);
-		// //console.log('new content:',newContent+residue)
+		console.log("residue: ", residue);
+		console.log("new content:", newContent + residue);
+
 		return newContent + residue;
 	};
 	const loading = (ele: HTMLElement, da: NoteContent) => {
@@ -184,22 +203,30 @@
 			//renderMatches(ele,cont,[[20,30]],-10)
 			//renderResults(ele,cont,{score:5,matches:[[20,30]]})
 			//const cache = view.app.metadataCache.getFileCache(file);
+			console.log("match data", da);
 			da.matchCache?.forEach(async (noteChache) => {
 				const container = ele.createDiv(),
 					section = noteChache.section,
 					sr = noteChache.matchResult; // new DocumentFragment();
 				//const sectionContainer = document.createDiv(),
+				console.log("file: ", file);
+				console.log(sr);
 				if (sr) {
 					const openFileOnMatch = async (e: MouseEvent) => {
-						view.plugin.onClickOpenFile(e, file, {
-							eState: {
-								match: {
-									content: (await data).content,
-									matches: sr.matches,
+						if (e.target instanceof HTMLAnchorElement) {
+							//do nothing
+							//handle by container
+						} else {
+							view.plugin.onClickOpenFile(e, file, {
+								eState: {
+									match: {
+										content: (await data).content,
+										matches: sr.matches,
+									},
 								},
-							},
-						});
-						e.stopPropagation();
+							});
+							e.stopPropagation();
+						}
 					};
 					container.onclick = openFileOnMatch;
 					if (section.type === "code") {
@@ -210,7 +237,10 @@
 						renderResults(
 							container,
 							renderContent,
-							sr,
+							{
+								score: sr.score,
+								matches: sr.matches.map((m) => m.match),
+							},
 							-sectionStart,
 						);
 						return;
@@ -234,6 +264,26 @@
 			});
 		} else {
 			MarkdownRenderer.render(view.app, da.content, ele, file.path, view);
+		}
+	};
+	const onOpenFile = (e: MouseEvent) => {
+		const target = e.target;
+		if (target instanceof HTMLAnchorElement) {
+			if (target.classList.contains("internal-link")) {
+				const linktext = target.getAttribute("data-href");
+				if (linktext) {
+					view.app.workspace.openLinkText(linktext, file.path);
+				}
+			}
+			//have nothing to do
+			//do the HtmlAnchor default action
+
+			// console.log(e.target.classList);
+			// console.log(e.target.className);
+			// console.log(e.target.href);
+			return;
+		} else {
+			view.plugin.onClickOpenFile(e, file);
 		}
 	};
 	// onMount(()=>{
@@ -285,7 +335,7 @@
 <div
 	on:dragstart={dragCard}
 	on:dragend={reset}
-	on:click={(e) => view.plugin.onClickOpenFile(e, file)}
+	on:click={onOpenFile}
 	on:contextmenu={moveFileToTrashFolder}
 	on:mouseenter={(e) => (onHover = true)}
 	on:mouseleave={(e) => (onHover = false)}

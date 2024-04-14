@@ -27,7 +27,11 @@
 		SearchResult,
 		TFile,
 	} from "obsidian";
-	import type { NoteContent, NoteMatchCache } from "./DisplayCard.svelte";
+	import type {
+		MatchWithType,
+		NoteContent,
+		NoteMatchCache,
+	} from "./DisplayCard.svelte";
 	import type { CardSearchView } from "../cardSearchView";
 	import { getCacheOffset } from "src/utility";
 	export let source: TFileContainer | FileMatch;
@@ -50,15 +54,15 @@
 				);
 			};
 		};
-		const inSectionRange = (s: SearchMatchPart, c: CacheItem) => {
-			const [matchStart, matchEnd] = s;
+		const inSectionRange = (mt: MatchWithType, c: CacheItem) => {
+			const [matchStart, matchEnd] = mt.match;
 			const [start, end] = getCacheOffset(c);
 			// (blockEnd > start && blockEnd <= end)
 			// 	|| (blockStart >= start && blockStart < end)
 			return matchStart >= start && matchEnd <= end;
 		};
 		const caches = view.app.metadataCache.getFileCache(match.file);
-		const extendMatchRange = (mtch: SearchMatchPart) => {
+		const extendMatchRange = (mtch: SearchMatchPart): MatchWithType => {
 			const [matchStart, matchEnd] = mtch;
 
 			const extendRange = (c: CacheItem): SearchMatchPart => {
@@ -67,13 +71,13 @@
 			};
 			const embeded = caches?.embeds?.find(touch(mtch));
 			if (embeded) {
-				return extendRange(embeded);
+				return { match: extendRange(embeded), type: "embeds" };
 			}
 			const linked = caches?.links?.find(touch(mtch));
 			if (linked) {
-				return extendRange(linked);
+				return { match: extendRange(linked) };
 			}
-			return mtch;
+			return { match: mtch };
 		};
 		const matches = contentMatch.matches.map(extendMatchRange);
 		// let sections:NoteMatchCache=[];

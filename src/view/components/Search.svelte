@@ -432,7 +432,6 @@
 										it.style,
 										gridProps.padding,
 									)}
-									onOpenFile={openFile}
 									data={item.data}
 								></DisplayCard>
 							</PrepareLoad>
