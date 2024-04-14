@@ -47,7 +47,7 @@ export class FileNameCheckModal extends Modal {
 		this.section = config.section;
 		this.onSubmit = config.onSubmit;
 		this.errorMessage = config.errorMessage;
-    }
+	}
 	onOpen(): void {
 
 		const linkReferenceDescription = this.section.type === 'reference'
@@ -119,13 +119,13 @@ export class FileNameCheckModal extends Modal {
 					this.onSubmit({ type: 'cancel' });
 					this.close();
 				})
-			})
+		})
 		if (this.errorMessage) {
 			actions.setDesc(this.errorMessage)
 		}
-    }
-    onClose(): void {
-        const { contentEl } = this;
+	}
+	onClose(): void {
+		const { contentEl } = this;
 		contentEl.empty();
 	}
 	getNameDesc = (fileName: string, blockName?: string): DocumentFragment => {

@@ -58,17 +58,9 @@
 		view: CardSearchView,
 		origin: TFileContainer[],
 		query: string,
-		// sortMethod: SortMethod,
-		// seq: "descending" | "ascending",
 	): Promise<TFileContainer[] | FileMatch[]> {
-		console.log("need to be run onece if click same button");
-		// const order =
-		// 	seq === descending
-		// 		? (a: FileCommon, b: FileCommon) => -sortMethod(a, b)
-		// 		: sortMethod;
-
 		return query.length !== 0
-			? await searchFiles(query, origin, view) //.sort(order)
-			: origin; //.sort(order);
+			? await searchFiles(query, origin, view)
+			: origin; 
 	}
 </script>

@@ -26,7 +26,6 @@
 			//.setCta()
 			.setTooltip(but.toolTip)
 			.onClick((e) => {
-				console.log("click in buttons", e, active);
 				if (active !== but.icon) {
 					b.setCta();
 					unActive();
