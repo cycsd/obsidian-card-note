@@ -49,7 +49,7 @@
 	let columnWidth = view.plugin.settings.columnWidth;
 	let rowHeight = view.plugin.settings.rowHeight;
 	let showLayoutMenu = false;
-	const gutter = 20;
+	const gutter = 30;
 
 	let originFiles: TFileContainer[] = [];
 	let query = "";
