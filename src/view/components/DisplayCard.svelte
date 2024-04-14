@@ -47,10 +47,7 @@
 	export let view: CardSearchView;
 	export let cellStyle: StyleObject;
 	export let data: Promise<NoteContent>;
-	// export let noteCaches: NoteMatchCache[];
-	//export let testProps:GridChildComponentProps;
-	//export let index:number|null;
-	//let contentEl:HTMLElement;
+
 	let onHover = false;
 
 	let listener: {
@@ -260,7 +257,6 @@
 	{:else}
 		<h2>{file.basename}</h2>
 	{/if}
-	<!-- <h6>{`Row ${testProps.rowIndex} - Col ${testProps.columnIndex}`} : {index}</h6> -->
 	{#await data}
 		<div>loading...</div>
 	{:then cont}

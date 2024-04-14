@@ -45,7 +45,6 @@
 	import SortingFiles from "./SortingFiles.svelte";
 
 	export let view: CardSearchView;
-	//export let renderMethod:()=>(node:HTMLElement,file:TFile,content:string)=>void
 
 	let columnWidth = view.plugin.settings.columnWidth;
 	let rowHeight = view.plugin.settings.rowHeight;
@@ -53,7 +52,6 @@
 	const gutter = 20;
 
 	let originFiles: TFileContainer[] = [];
-	let matchFiles: FileMatch[] = [];
 	let query = "";
 	let sortMethod = sortByModifiedTime;
 	let seq: SEQ = descending;
@@ -65,8 +63,8 @@
 		horizontalScrollDirection: "forward",
 	};
 
-	$: files = getDisplayFiles(view, originFiles, query); //, sortMethod, seq); //query.length === 0 ? [...originFiles] : [...matchFiles];
-	//$: totalCount = files.length;
+	$: files = getDisplayFiles(view, originFiles, query);
+
 
 	let rowCount: number;
 	onMount(() => {
@@ -108,13 +106,6 @@
 					originFiles = originFiles.map((of) =>
 						of.file === mf ? { file: mf } : of,
 					);
-				// console.log("grid prev tick", grid, "scroll to", offset);
-				// await tick();
-				// await files;
-				// grid.scrollTo({
-				// 	scrollLeft: offset.scrollLeft,
-				// 	scrollTop: offset.scrollTop,
-				// });
 			}),
 		);
 		const rename = view.app.vault.on("rename", (tf, oldPath) =>
@@ -143,7 +134,6 @@
 		);
 
 		return () => {
-			console.log("delete");
 			vault.offref(create);
 			vault.offref(modify);
 			vault.offref(del);
@@ -151,40 +141,7 @@
 			view.app.workspace.offref(leafChange);
 		};
 	});
-	// afterUpdate(() => {
-	// 	if (grid) {
-	// 		console.log('after update',offset)
-	// 		grid.scrollTo({
-	// 			scrollLeft: offset.scrollLeft,
-	// 			scrollTop: offset.scrollTop,
-	// 		});
-	// 	}
-	// });
 
-	// const fuzzySearch = async (searchQuery: string) => {
-	// 	if (searchQuery.length !== 0) {
-	// 		//const fuzzy = prepareFuzzySearch(searchQuery),
-	// 		const fuzzy = prepareSimpleSearch(searchQuery),
-	// 			searching = async (
-	// 				cont: TFileContainer,
-	// 			): Promise<FileMatch | undefined> => {
-	// 				const content = await view.app.vault.cachedRead(cont.file),
-	// 					result = fuzzy(content);
-	// 				if (result) {
-	// 					return {
-	// 						file: cont.file,
-	// 						content,
-	// 						matchResult: result,
-	// 					};
-	// 				}
-	// 			},
-	// 			finds = (await Promise.all(originFiles.map(searching))).filter(
-	// 				(file) => file !== undefined,
-	// 			) as FileMatch[];
-	// 		matchFiles = finds;
-	// 	}
-	// 	query = searchQuery;
-	// };
 	const search = (ele: HTMLElement) => {
 		new SearchComponent(ele).onChange(
 			debounce((value) => {
@@ -204,29 +161,7 @@
 				showLayoutMenu = !showLayoutMenu;
 			});
 	};
-	// const showLayoutMenuSetting = (e: MouseEvent) => {
-	// 	if (showLayoutMenu) {
-	// 	}
-	// 	showLayoutMenu = !showLayoutMenu;
-	// const menu = new Menu();
-	// // const columneSetting = document.createDiv();
-	// console.log("menu", menu);
-	// menu.setUseNativeMenu(true);
-	// menu.addItem((item) => {
-	// 	item.setTitle("item menu");
-	// 	item;
-	// 	// item.setDisabled(false)
-	// 	console.log("item: ", item);
-	// 	new SliderComponent(item.dom.createEl("button"))
-	// 		.setLimits(200, 1000, 10)
-	// 		.setDynamicTooltip()
-	// 		.onChange((value) => {
-	// 			columnWidth = value;
-	// 		});
-	// });
-	// menu.dom.createDiv();
-	// menu.showAtMouseEvent(e);
-	// };
+
 	const columnWidthSetting = (ele: HTMLElement) => {
 		new SliderComponent(ele)
 			.setLimits(200, 1000, 10)
@@ -289,7 +224,6 @@
 		const dataBefore = com.rowIndex * columnCount,
 			columOffest = com.columnIndex + 1,
 			dataCount = dataBefore + columOffest;
-		//console.log("row:", com.rowIndex, "column:", com.columnIndex, "data index", dataCount, 'files lenght', files.length)
 		return dataCount <= totalCount ? dataCount - 1 : null;
 	};
 
@@ -318,16 +252,10 @@
 	};
 	const rememberScrollOffsetForFileUpdate = debounce(
 		(props: GridOnScrollProps) => {
-			// console.log("onscroll", props);
 			offset = props;
 		},
 		2000,
 	);
-	const openFile = (file: TFile) => {
-		console.log("open file", file);
-		view.app.workspace.getLeaf(false).openFile(file);
-	};
-
 	let grid: FixedSizeGrid;
 </script>
 
@@ -337,7 +265,6 @@
 		grid.scrollTo({ scrollLeft: 0, scrollTop: 1600 });
 	}}
 >
-	<!-- click to offset 1600 -->
 </div>
 <div class="searchMenuBar">
 	<div>
@@ -355,41 +282,22 @@
 			</div>
 		{/if}
 		<div use:layoutSetting></div>
-		<!-- <div use:icon={"clock"}></div> -->
 		<ButtonGroups
 			buttons={sortMethods}
 			onclick={(e, value) => {
 				sortMethod = value;
 			}}
 		></ButtonGroups>
-		<!-- <div use:icon={"file-plus-2"}></div>
-		<div use:icon={"file-clock"}></div>
-		<div use:icon={"file-search"}></div> -->
 		<ButtonGroups
 			buttons={sortSeq}
 			onclick={(e, value) => {
 				seq = value;
 			}}
 		></ButtonGroups>
-		<!-- <div use:icon={"arrow-down-narrow-wide"}></div>
-		<div use:icon={"arrow-up-narrow-wide"}></div> -->
 	</div>
 </div>
-<!-- <div>query: {query}</div>
-<div>show total count in search {totalCount}</div> -->
 <AutoSizer let:width={childWidth} let:height={childHeight}>
-	<!-- {#await files}
-		Searching...
-	{:then f} -->
 	{#await files then f}
-		<!-- <div>render in move window {f.length}</div> -->
-		<!-- <p
-			on:click={(e) => {
-				console.log(grid);
-			}}
-		>
-			width:{childWidth} height:{childHeight}
-		</p> -->
 		<ComputeLayout
 			viewHeight={childHeight ?? 1000}
 			viewWidth={childWidth ?? 1000}
@@ -399,7 +307,6 @@
 			let:gridProps
 		>
 			<SortingFiles files={f} {sortMethod} {seq} let:files={sortFiles}>
-				<!-- <div>grid rows: {gridProps.rows}</div> -->
 				<Grid
 					bind:this={grid}
 					initialScrollTop={offset.scrollTop}
@@ -415,8 +322,6 @@
 					let:items
 				>
 					{#each items as it}
-						<!-- {it.isScrolling ? 'Scrolling' : `Row ${it.rowIndex} - Col ${it.columnIndex}`} -->
-						<!-- {console.log(grid)} -->
 						{#if index(it, gridProps.columns, f.length) !== null}
 							<PrepareLoad
 								{view}

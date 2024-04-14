@@ -4,7 +4,6 @@
 		toolTip: string;
 		value: T;
 		active?: boolean;
-		//onclick: (e: MouseEvent, value: T) => void;
 	};
 </script>
 
@@ -23,7 +22,6 @@
 	const renderIcon = (el: HTMLElement, but: Button<T>) => {
 		const b = new ButtonComponent(el)
 			.setIcon(but.icon)
-			//.setCta()
 			.setTooltip(but.toolTip)
 			.onClick((e) => {
 				if (active !== but.icon) {
