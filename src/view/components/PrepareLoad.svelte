@@ -23,7 +23,6 @@
 	import type {
 		CacheItem,
 		SearchMatchPart,
-		SearchMatches,
 		SearchResult,
 		TFile,
 	} from "obsidian";

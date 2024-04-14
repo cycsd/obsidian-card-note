@@ -1,22 +1,15 @@
 <script lang="ts">
 	import {
-		MarkdownRenderer,
 		SearchComponent,
 		SliderComponent,
-		prepareFuzzySearch,
 		TFile,
 		debounce,
-		prepareSimpleSearch,
-		setIcon,
-		Menu,
 		ButtonComponent,
-		Vault,
 		TAbstractFile,
 	} from "obsidian";
-	import { afterUpdate, onMount, tick } from "svelte";
+	import { onMount } from "svelte";
 	import {
 		FixedSizeGrid as Grid,
-		styleString as sty,
 		type GridChildComponentProps,
 		type StyleObject,
 		FixedSizeGrid,
@@ -27,7 +20,6 @@
 	import type { CardSearchView } from "../cardSearchView";
 	import ComputeLayout from "./ComputeLayout.svelte";
 	import PrepareLoad, {
-		type FileMatch,
 		type TFileContainer,
 	} from "./PrepareLoad.svelte";
 	import {

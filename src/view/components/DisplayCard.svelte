@@ -17,11 +17,9 @@
 </script>
 
 <script lang="ts">
-	import type CardNote from "main";
 	import {
 		MarkdownRenderer,
 		TFile,
-		renderMatches,
 		setIcon,
 		type SectionCache,
 		renderResults,
@@ -30,19 +28,16 @@
 		Menu,
 		type SearchMatchPart,
 	} from "obsidian";
-	import { afterUpdate, onMount } from "svelte";
 	import type { CardSearchView } from "../cardSearchView";
-	import type { GridChildComponentProps, StyleObject } from "svelte-window";
+	import type { StyleObject } from "svelte-window";
 	import { styleString as sty } from "svelte-window";
 	import { isObsidianCanvasView } from "src/adapters/obsidian";
-	import { getCacheOffset, markdownParser } from "src/utility";
+	import { getCacheOffset } from "src/utility";
 	import {
 		insertEmbeddableOnDrawing,
 		isExcalidrawView,
 	} from "src/adapters/obsidian-excalidraw-plugin";
-	import path from "path";
-	import { appendFile } from "fs";
-
+	
 	export let file: TFile;
 	export let view: CardSearchView;
 	export let cellStyle: StyleObject;
