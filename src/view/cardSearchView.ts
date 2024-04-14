@@ -3,7 +3,7 @@ import Search from "./components/Search.svelte"
 import type CardNote from "main";
 
 
-export const VIEW_TYPE_CARDNOTESEARCH = "card-note-search-view"
+export const VIEW_TYPE_CARDNOTESEARCH = "card-notes-view"
 export class CardSearchView extends ItemView {
     plugin: CardNote;
     component?: Search;
