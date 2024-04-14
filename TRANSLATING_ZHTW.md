@@ -34,11 +34,14 @@
 ## Extract foldable range
 ![ExampleFoldable](src/images/CardNoteFoldable.gif)
 
+# 可替代的
+### Drag-and-Drop
+你可以解由下方的步驟替代此插件的Drag-and-Drop功能
+ 1. 選擇想要整理的段落，並在編輯器上右鍵開啟工具菜單
+ 2. 點選擷取目前內容至其他檔案
+ 3. 在 [Obsidian Canvas](https://obsidian.md/canvas) 或 [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin)點選右鍵開啟工具菜單
+ 4. 點選插入檔案，將剛剛創建的檔案插入至畫布中
+ 5. 可以藉由拖曳連結取代 3~4 步驟，且藉由設定 Note Composer快速鍵取代右鍵操作
 
-> [!note] 
-> # 如果你對下方步驟熟悉且不會厭煩的話，你不需要使用此插件
-> 1. 選擇想要整理的段落，並在編輯器上右鍵開啟工具菜單
-> 2. 點選擷取目前內容至其他檔案
-> 3. 在 [Obsidian Canvas](https://obsidian.md/canvas) 或 [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin)點選右鍵開啟工具菜單
-> 4. 點選插入檔案，將剛剛創建的檔案插入至畫布中
-> 5. 可以藉由拖曳連結取代 3~4 步驟，且藉由設定 Note Composer快速鍵取代右鍵操作
+ ### Cards View
+ [obsidian-cards-view-plugin](https://github.com/jillro/obsidian-cards-view-plugin): 一個可將你的筆記變成美觀的卡片插件

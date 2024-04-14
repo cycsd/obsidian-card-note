@@ -37,11 +37,17 @@ This tool help you create a new note and insert its link into the canvas. Let yo
 ## Extract foldable range
 ![ExampleFoldable](src/images/CardNoteFoldable.gif)
 
-> [!note] 
-> # You don't need to use this plugin
-> ## if you are comfortable with following steps:
-> 1. Right-click to open the tools menu in the editor
-> 2. Use Obsidian Note Composer to extract your thoughts into a new note
-> 3. In [Obsidian Canvas](https://obsidian.md/canvas) or [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin), Right-click to open the tools menu.
-> 4. Insert markdown file to canvas.
-> 5. You can replace Right-click by setting Note Composer hotkey, and replace steps 3 ~ 4 by dragging link in editor.
+## Cards View
+![Crads View](src/images/CardNoteSearchView.gif)
+
+# Alternative
+### Drag-and-Drop
+ You could replace drag-and-drop feature by steps below
+ 1. Right-click to open the tools menu in the editor
+ 2. Use Obsidian Note Composer to extract your thoughts into a new note
+ 3. In [Obsidian Canvas](https://obsidian.md/canvas) or [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin), Right-click to open the tools menu.
+ 4. Insert markdown file to canvas.
+ 5. You can replace Right-click by setting Note Composer hotkey, and replace steps 3 ~ 4 by dragging link in editor.
+
+ ### Cards View
+ [obsidian-cards-view-plugin](https://github.com/jillro/obsidian-cards-view-plugin): display a beautiful masonry layout for your notes.
