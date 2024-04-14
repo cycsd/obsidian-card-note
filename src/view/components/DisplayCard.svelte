@@ -184,7 +184,7 @@
 								eState: {
 									match: {
 										content: (await data).content,
-										matches: sr.matches,
+										matches: sr.matches.map(m=>m.match),
 									},
 								},
 							});
