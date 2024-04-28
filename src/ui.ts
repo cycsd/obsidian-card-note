@@ -72,7 +72,7 @@ export class FileNameCheckModal extends Modal {
 					.setTooltip('Create random block id')
 					.setCta()
 					.onClick(() => {
-						this.userInput = this.plugin.createRandomBlockId();
+						this.userInput = this.plugin.createRandomHexString();
 						userInputText?.setValue(this.userInput);
 					})
 			})

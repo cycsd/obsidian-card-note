@@ -9,6 +9,10 @@ export function isObsidianCanvasView(view?: TextFileView): view is CanvasView {
 	return view?.getViewType() === OBSIDIAN_CANVAS;
 }
 export function isCanvasFileNode(node: CanvasNode | ObsidianCanvasNode): node is CanvasFileNode {
-	return 'file' in node
+	return 'file' in node && 'canvas' in node
+}
+export function getOffset(node: CanvasFileNode) {
+	const child = node.child
+	return child === undefined ? 0 : child?.before.length + child?.heading.length
 }
 

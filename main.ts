@@ -12,7 +12,7 @@ import {
 } from "obsidian";
 import type { LinkFilePath, LinkPath } from "src/dragUpdate";
 import { dragExtension } from "src/dragUpdate";
-import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
+import { getOffset, isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import type { FileInfo, LinkInfo, RequiredProperties, } from "src/utility";
 import { FILENAMEREPLACE, HEADINGREPLACE, LinkToChanges, createFullPath } from "src/utility";
 import type { CanvasData, CanvasFileData, AllCanvasNodeData } from "obsidian/canvas";
@@ -128,15 +128,14 @@ export default class CardNote extends Plugin {
 				// so property type = 'file' | 'text' | 'group' is in the unknownData property
 				//const file = selectNode?.file as TFile | undefined;
 				return selectNode && isCanvasFileNode(selectNode)
-					? { fileEditor: selectNode, offset: selectNode.child.before.length }
+					? { fileEditor: selectNode, offset: getOffset(selectNode) }
 					: undefined
 			}
 			if (isExcalidrawView(view)) {
-				const embeddable = view.getActiveEmbeddable(),
-					before = embeddable?.node?.child.before as string ?? '';
+				const embeddable = view.getActiveEmbeddable();
 
 				return embeddable?.node && isCanvasFileNode(embeddable.node)
-					? { fileEditor: embeddable.node, offset: before.length } : undefined
+					? { fileEditor: embeddable.node, offset: getOffset(embeddable.node) } : undefined
 			}
 
 		}
@@ -283,8 +282,8 @@ export default class CardNote extends Plugin {
 			? link.replace(' ', '%20')
 			: link
 	}
-	createRandomBlockId(length = 6) {
-		const id = [...Array(6).keys()]
+	createRandomHexString(length = 6) {
+		const id = [...Array(length).keys()]
 			.map(_ => (16 * Math.random() | 0).toString(16)).join('')
 		return id
 	}

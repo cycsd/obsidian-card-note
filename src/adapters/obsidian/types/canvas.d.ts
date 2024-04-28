@@ -1,7 +1,11 @@
 import { TFile, TextFileView } from "obsidian";
 import { AllCanvasNodeData, CanvasNodeData } from "obsidian/canvas";
 
+class CanvasEdge {
+	new();
 
+}
+export function isInstanceofCanvasEdge()
 export interface CanvasView extends TextFileView {
 	canvas: ObsidianCanvas;
 }
@@ -35,7 +39,7 @@ export interface CanvasFileNode extends CanvasNodeData {
 	setFilePath: (filePath: string, subpath: string) => void,
 	filePath: string,
 	subpath: string,
-	child: {
+	child?: {
 		//text before current
 		before: string,
 		//text after current
