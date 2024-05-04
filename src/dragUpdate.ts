@@ -4,15 +4,17 @@ import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
 import { foldable } from "@codemirror/language";
 import type { Break, LinkInfo, RequiredProperties, } from "src/utility";
 import {
-	ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, BLOCKIDREPLACE, listItemParser
+	ReCheck, isBreak, LineBreak as LINEBREAK, MarkdownFileExtension, throttle, BLOCKIDREPLACE, listItemParser,
+	getRelativePosition,
+	reverseRelative
 } from "src/utility";
 import type { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, SectionCache, } from "obsidian";
 import { TFile } from "obsidian";
 import type { BaseAction, FileNameModelConfig, UserAction } from "src/ui";
 import { FileNameCheckModal } from "src/ui";
-import { createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
-import { isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
-import type { CanvasFileNode, CanvasView } from "./adapters/obsidian/types/canvas";
+import { addLink, createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
+import { isCanvasEditorNode, isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
+import type { CanvasFileNode, CanvasTextNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import type { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 //import { syntaxTree } from "@codemirror/language";
 
@@ -212,9 +214,9 @@ async function userAction(plugin: CardNote, section: Section, selected: UserSele
 }
 
 function getSection(source: FileEditor | undefined, selected: UserSelection, plugin: CardNote): Section {
-	if (source && source?.fileEditor?.file instanceof TFile && selected.type !== 'mutiple') {
-		const { offset, fileEditor } = source,
-			sourceFile = fileEditor.file!;
+	const sourceFile = getFile(source);
+	if (sourceFile instanceof TFile && selected.type !== 'mutiple') {
+		const offset = source?.offset ?? 0;
 		const fileCache = plugin.app.metadataCache.getFileCache(sourceFile),
 			matchStart = (block: CacheItem) => {
 				const start = selected.selection.from + offset;
@@ -369,8 +371,16 @@ export async function onFilesUpdated(plugin: CardNote, files: TFile[], on: (cach
 
 }
 type FileEditor = {
-	fileEditor: MarkdownFileInfo | CanvasFileNode | null | undefined,
+	fileEditor: MarkdownFileInfo | CanvasFileNode | CanvasTextNode | null | undefined,
 	offset: number,
+}
+function getFile(ed: FileEditor | undefined | null) {
+	const hasFile = (fe: MarkdownFileInfo | CanvasFileNode | CanvasTextNode): fe is MarkdownFileInfo | CanvasFileNode => {
+		return 'file' in fe;
+	}
+	if (ed?.fileEditor && hasFile(ed.fileEditor)) {
+		return ed.fileEditor.file
+	}
 }
 async function extractSelect(
 	action: Required<BaseAction>,
@@ -409,7 +419,7 @@ async function extractSelect(
 					return `${newPath.path}${newPath.subpath}`;
 				});
 			}
-			}, 10);
+		}, 10);
 
 		const [_, outer] = await linksInFiles;
 		const canvasHasMatchLinks = plugin.getCanvas((canvasPath, embed) => {
@@ -452,8 +462,8 @@ async function extractSelect(
 	if (action.type === 'createFile') {
 
 		const updateConfig = () => {
-			if (activeFile?.fileEditor?.file) {
-				const sourceFile = activeFile.fileEditor.file;
+			const sourceFile = getFile(activeFile);
+			if (sourceFile) {
 				const match = (link: LinkPath) =>
 					(link.path === sourceFile.path || link.file === sourceFile)
 					&& link.subpath !== undefined
@@ -537,7 +547,7 @@ async function extractSelect(
 					sourceFile,
 					old => newPath,
 					link => (link.path === sourceFile.path || link.file === sourceFile)
-					&& link.subpath !== undefined
+						&& link.subpath !== undefined
 						&& link.subpath === oldPath
 					,
 					[sourceFile]
@@ -592,19 +602,20 @@ export const dragExtension = (plugin: CardNote) => {
 					);
 				}
 			};
-			const locate = plugin.app.workspace.getDropLocation(e);
-			const target = locate.children.find(child => child.tabHeaderEl.className.contains("active"));
-			const drawView = target?.view;
+			const drawView = plugin.getDropView(e);
 			if (isExcalidrawView(drawView)) {
 				createFileAndDraw(
 					{
 						located: drawView,
-						draw: (target) => {
-							if (typeof (target) !== 'string') {
-								insertEmbeddableNoteOnDrawing(e, drawView, target.text, target.file, plugin);
-							}
-							else {
-								createTextOnDrawing(e, drawView, target, plugin);
+						draw: async (target) => {
+							const createNode = typeof (target) === 'string'
+								? createTextOnDrawing(e, drawView, target, plugin)
+								: insertEmbeddableNoteOnDrawing(e, drawView, target.text, target.file, plugin);
+							if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
+								const createNodeId = await createNode;
+								if (createNodeId) {
+									addLink(source.fileEditor.id, createNodeId, drawView, plugin)
+								}
 							}
 						},
 						updateLinks: (para) => {
@@ -637,21 +648,36 @@ export const dragExtension = (plugin: CardNote) => {
 				createFileAndDraw({
 					located: drawView,
 					draw: (target) => {
-						if (typeof (target) !== 'string') {
-							drawView.canvas.createFileNode({
-								file: target.file,
-								pos,
-								subpath: target.subpath,
-								save: true,
-							});
+						const dropCanvas = drawView.canvas;
+						const createNode = typeof (target) === 'string' ? dropCanvas.createTextNode({
+							text: target,
+							pos,
+							save: true,
+						}) : dropCanvas.createFileNode({
+							file: target.file,
+							pos,
+							subpath: target.subpath,
+							save: true,
+						});
+						if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
+							const fromSide = getRelativePosition(source.fileEditor, createNode);
+							if (fromSide && reverseRelative.has(fromSide)) {
+								const toSide = reverseRelative.get(fromSide);
+								const edgeID = plugin.createRandomHexString(16);
+								const data = dropCanvas.getData()
+								dropCanvas.importData({
+									nodes: data.nodes,
+									edges: [...data.edges, {
+										id: edgeID,
+										fromNode: source.fileEditor.id,
+										fromSide,
+										toNode: createNode.id,
+										toSide: toSide!
+									}]
+								});
+							}
 						}
-						else {
-							drawView.canvas.createTextNode({
-								text: target,
-								pos,
-								save: true,
-							});
-						}
+						dropCanvas.requestFrame()
 					},
 					updateLinks: (para) => {
 						const { linkMatch, getNewPath } = para;

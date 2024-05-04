@@ -15,11 +15,12 @@ import type { ObsidianMarkdownEmbeded } from "./types/ExcalidrawAutomate";
 
 
 
+
 export const VIEW_TYPE_EXCALIDRAW = "excalidraw";
 export function getEA(view?: any): ExcalidrawAutomate {
-    return excalidrawGetEA(view);
+	return excalidrawGetEA(view);
 }
-export function isExcalidrawView(view: any): view is ExcalidrawView{
+export function isExcalidrawView(view: any): view is ExcalidrawView {
 	return view.getViewType() === VIEW_TYPE_EXCALIDRAW;
 }
 export function isObsidianMarkdownEmbeded(value: any): value is Required<ObsidianMarkdownEmbeded> {
@@ -40,13 +41,14 @@ export async function insertEmbeddableOnDrawing(event: DragEvent, view: Excalidr
 		const id = ea.addEmbeddable(
 			pos.x,
 			pos.y,
-		MAX_IMAGE_SIZE,
-		MAX_IMAGE_SIZE,
-		fileLink,
-		file
+			MAX_IMAGE_SIZE,
+			MAX_IMAGE_SIZE,
+			fileLink,
+			file
 		)
 		await ea.addElementsToView(false, true, true);
 		ea.selectElementsInView([id]);
+		return id
 		//const eb = ExcalidrawLib;
 		//const api = ea.getExcalidrawAPI();
 		//const appState = api.getAppState();
@@ -85,9 +87,21 @@ export async function createTextOnDrawing(event: DragEvent, view: ExcalidrawView
 			text,
 		)
 		await view.addElements(ea.getElements(), false, true, undefined, true);
+		return id
 
 	} catch (error) {
 		console.log(error);
 	}
+
+}
+export async function addLink(fromNodeId: string, toNodeId: string, view: ExcalidrawView, plugin: CardNote) {
+	const ea = getEA();
+	const eaView = ea.setView(view);
+	ea.copyViewElementsToEAforEditing(ea.getViewElements());
+	ea.connectObjects(fromNodeId, null, toNodeId, null, {
+		startArrowHead: null,
+		endArrowHead: 'arrow'
+	});
+	await ea.addElementsToView(false, true, true);
 
 }

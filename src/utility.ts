@@ -1,5 +1,6 @@
 import CardNote from "main";
 import type { Changes, ChangeInfo, LinkCache, CacheItem } from "obsidian";
+import type { CanvasNodeData, NodeSide } from "obsidian/canvas";
 
 
 
@@ -274,4 +275,23 @@ export function LinkToChanges(linkMap: Map<string, LinkInfo[]>, newPath: (link: 
 	})
 
 	return change
+}
+
+export const reverseRelative = new Map<NodeSide, NodeSide>([
+	['top', 'bottom'],
+	['right', 'left'],
+	['bottom', 'top'],
+	['left', 'right']
+])
+export function getRelativePosition(center: CanvasNodeData, relative: CanvasNodeData): NodeSide | undefined {
+	const { x: xStart, y: yStart, width, height } = center;
+	const xEnd = xStart + width,
+		yEnd = yStart + height;
+	const { x: xR, y: yR, width: Rwidth } = relative;
+	const xREnd = xR + Rwidth;
+	return xR >= xEnd ? 'right'
+		: xREnd <= xStart ? 'left'
+			: yR <= yStart ? 'top'
+				: yR >= yEnd ? 'bottom'
+					: undefined
 }

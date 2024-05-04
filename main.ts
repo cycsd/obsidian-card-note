@@ -12,7 +12,7 @@ import {
 } from "obsidian";
 import type { LinkFilePath, LinkPath } from "src/dragUpdate";
 import { dragExtension } from "src/dragUpdate";
-import { getOffset, isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
+import { getOffset, isCanvasFileNode, isCanvasEditorNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import type { FileInfo, LinkInfo, RequiredProperties, } from "src/utility";
 import { FILENAMEREPLACE, HEADINGREPLACE, LinkToChanges, createFullPath } from "src/utility";
 import type { CanvasData, CanvasFileData, AllCanvasNodeData } from "obsidian/canvas";
@@ -27,6 +27,8 @@ interface CardNoteSettings {
 	defaultFolder: string,
 	columnWidth: number,
 	rowHeight: number,
+	autoLink: boolean,
+	defaultLinkLabel?: string,
 }
 
 const DEFAULT_SETTINGS: CardNoteSettings = {
@@ -35,6 +37,7 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 	defaultFolder: "",
 	columnWidth: 250,
 	rowHeight: 250,
+	autoLink: false,
 };
 export default class CardNote extends Plugin {
 	settings: CardNoteSettings = DEFAULT_SETTINGS;
@@ -49,6 +52,14 @@ export default class CardNote extends Plugin {
 		this.addRibbonIcon("scan-search",
 			"Search Notes",
 			() => this.activateView())
+		this.addCommand({
+			id: 'auto-link',
+			name: 'auto link edge',
+			callback: () => {
+				this.settings.autoLink = true;
+				this.saveSettings();
+			}
+		})
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
 	}
@@ -127,15 +138,21 @@ export default class CardNote extends Plugin {
 				// selection is canvas node not the json canvas node data,
 				// so property type = 'file' | 'text' | 'group' is in the unknownData property
 				//const file = selectNode?.file as TFile | undefined;
-				return selectNode && isCanvasFileNode(selectNode)
+				return isCanvasEditorNode(selectNode)
 					? { fileEditor: selectNode, offset: getOffset(selectNode) }
 					: undefined
 			}
 			if (isExcalidrawView(view)) {
+				const excalidrawShape = view.getViewSelectedElements().first()
 				const embeddable = view.getActiveEmbeddable();
 
-				return embeddable?.node && isCanvasFileNode(embeddable.node)
-					? { fileEditor: embeddable.node, offset: getOffset(embeddable.node) } : undefined
+				return isCanvasEditorNode(embeddable?.node)
+					? {
+						fileEditor: {
+							...embeddable.node,
+							id: excalidrawShape?.id ?? embeddable.node.id,
+						}, offset: getOffset(embeddable.node)
+					} : undefined
 			}
 
 		}
@@ -364,10 +381,10 @@ export default class CardNote extends Plugin {
 			}
 		}
 
-		this.registerDomEvent(container, 'dragenter', showDragContent);
-		this.registerDomEvent(container, 'dragover', moveDragContent);
-		this.registerDomEvent(container, 'dragleave', hideDragContent);
-		this.registerDomEvent(container, 'drop', dropEvent)
+		container.addEventListener('dragenter', showDragContent);
+		container.addEventListener('dragover', moveDragContent);
+		container.addEventListener('dragleave', hideDragContent);
+		container.addEventListener('drop', dropEvent)
 
 		return {
 			reset: () => {

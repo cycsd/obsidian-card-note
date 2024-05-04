@@ -1,5 +1,5 @@
 import { TFile, TextFileView } from "obsidian";
-import { AllCanvasNodeData, CanvasNodeData } from "obsidian/canvas";
+import { AllCanvasNodeData, CanvasNodeData, type CanvasData } from "obsidian/canvas";
 
 class CanvasEdge {
 	new();
@@ -21,7 +21,7 @@ export interface ObsidianCanvas {
 		size?: { heigth: number, width: number },
 		save?: boolean,
 		focus?: boolean,
-	}) => any,
+	}) => CanvasFileNode,
 	createTextNode: (config: {
 		text: string,
 		pos: { x: number, y: number },
@@ -29,13 +29,16 @@ export interface ObsidianCanvas {
 		size?: { heigth: number, width: number },
 		save?: boolean,
 		focus?: boolean,
-	}) => void,
-	requestSave: () => void,
+	}) => CanvasTextNode,
+	getData: () => CanvasData,
+	importData: (data: CanvasData) => void,
+	requestFrame: () => Promise<void>,
+	requestSave: () => Promis<void>,
 }
 export type CanvasNode = CanvasFileNode | CanvasTextNode
 export interface CanvasFileNode extends CanvasNodeData {
 	file: TFile,
-	canvas:ObsidianCanvas,
+	canvas: ObsidianCanvas,
 	setFilePath: (filePath: string, subpath: string) => void,
 	filePath: string,
 	subpath: string,
