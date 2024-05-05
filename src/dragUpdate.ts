@@ -834,6 +834,7 @@ export const dragExtension = (plugin: CardNote) => {
 		//依此stateField狀態所需要更新的Extension都可以放在provide funciton中提供出來
 		provide: (value) => {
 			const gut = gutter({
+				class: 'cn-drag-symbol',
 				markers: (v) => {
 					const range_set = v.state.field(value);
 					return v.state.doc.length !== 0 ? range_set : RangeSet.empty;

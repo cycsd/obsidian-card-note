@@ -95,6 +95,7 @@ export async function createTextOnDrawing(event: DragEvent, view: ExcalidrawView
 
 }
 export async function addLink(fromNodeId: string, toNodeId: string, view: ExcalidrawView, plugin: CardNote) {
+	try {
 	const ea = getEA();
 	const eaView = ea.setView(view);
 	ea.copyViewElementsToEAforEditing(ea.getViewElements());
@@ -116,6 +117,8 @@ export async function addLink(fromNodeId: string, toNodeId: string, view: Excali
 		labelElement.containerId = edgeId;
 		labelElement.angle = 0;
 	}
-
-	await ea.addElementsToView(false, true, true);
+		await ea.addElementsToView(false, true, true);
+	} catch (error) {
+		console.log(error);
+	}
 }
