@@ -14,7 +14,7 @@ import type { BaseAction, FileNameModelConfig, UserAction } from "src/ui";
 import { FileNameCheckModal } from "src/ui";
 import { addLink, createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isCanvasEditorNode, isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
-import type { CanvasFileNode, CanvasTextNode, CanvasView } from "./adapters/obsidian/types/canvas";
+import type { CanvasEdgeNode, CanvasFileNode, CanvasTextNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import type { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
 //import { syntaxTree } from "@codemirror/language";
 
@@ -614,7 +614,7 @@ export const dragExtension = (plugin: CardNote) => {
 							if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
 								const createNodeId = await createNode;
 								if (createNodeId) {
-									addLink(source.fileEditor.id, createNodeId, drawView, plugin)
+									await addLink(source.fileEditor.id, createNodeId, drawView, plugin)
 								}
 							}
 						},
@@ -647,37 +647,59 @@ export const dragExtension = (plugin: CardNote) => {
 				const pos = drawView.canvas.posFromEvt(e);
 				createFileAndDraw({
 					located: drawView,
-					draw: (target) => {
+					draw: async (target) => {
 						const dropCanvas = drawView.canvas;
 						const createNode = typeof (target) === 'string' ? dropCanvas.createTextNode({
 							text: target,
 							pos,
-							save: true,
+							save: false,
 						}) : dropCanvas.createFileNode({
 							file: target.file,
 							pos,
 							subpath: target.subpath,
-							save: true,
+							save: false,
 						});
 						if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
 							const fromSide = getRelativePosition(source.fileEditor, createNode);
 							if (fromSide && reverseRelative.has(fromSide)) {
 								const toSide = reverseRelative.get(fromSide);
 								const edgeID = plugin.createRandomHexString(16);
-								const data = dropCanvas.getData()
-								dropCanvas.importData({
-									nodes: data.nodes,
-									edges: [...data.edges, {
-										id: edgeID,
-										fromNode: source.fileEditor.id,
-										fromSide,
-										toNode: createNode.id,
-										toSide: toSide!
-									}]
-								});
+								const fromEnd = plugin.arrowToFrom() ? 'arrow' : 'none';
+								const toEnd = plugin.arrowToEnd() ? 'arrow' : 'none';
+								const label = plugin.settings.defaultLinkLabel ?? 'to';
+								const edgeSample = dropCanvas.edges.values().next().value;
+								if (edgeSample) {
+									// @ts-ignore: Wait for the Obsidian API then fix this lack of proper constructor
+									const e: CanvasEdgeNode = new edgeSample.constructor(dropCanvas, edgeID,
+										{ side: fromSide, node: source.fileEditor, end: fromEnd },
+										{ side: toSide, node: createNode, end: toEnd })
+									e.setLabel(label);
+									dropCanvas.addEdge(e);
+									e.attach();
+									e.render();
+								}
+								else {
+									const data = dropCanvas.getData()
+									dropCanvas.importData({
+										nodes: data.nodes,
+										edges: [...data.edges, {
+											id: edgeID,
+											fromNode: source.fileEditor.id,
+											fromSide,
+											fromEnd,
+											toNode: createNode.id,
+											toSide: toSide!,
+											toEnd,
+											label,
+										}]
+									});
+								}
 							}
 						}
-						dropCanvas.requestFrame()
+						else {
+							await dropCanvas.requestFrame();
+						}
+						dropCanvas.requestSave()
 					},
 					updateLinks: (para) => {
 						const { linkMatch, getNewPath } = para;

@@ -98,10 +98,22 @@ export async function addLink(fromNodeId: string, toNodeId: string, view: Excali
 	const ea = getEA();
 	const eaView = ea.setView(view);
 	ea.copyViewElementsToEAforEditing(ea.getViewElements());
-	ea.connectObjects(fromNodeId, null, toNodeId, null, {
-		startArrowHead: null,
-		endArrowHead: 'arrow'
+	const edgeId = ea.connectObjects(fromNodeId, null, toNodeId, null, {
+		startArrowHead: plugin.arrowToFrom() ? 'arrow' : null,
+		endArrowHead: plugin.arrowToEnd() ? 'arrow' : null,
 	});
-	await ea.addElementsToView(false, true, true);
+	const label = plugin.settings.defaultLinkLabel ?? 'to';
+	const labelId = ea.addLabelToLine(edgeId, label);
+	const edge = ea.elementsDict[edgeId];
+	edge.boundElements.push(
+		{
+			type: "text",
+			id: labelId,
+		}
+	);
+	const labelElement = ea.elementsDict[labelId];
+	labelElement.containerId = edgeId;
+	labelElement.angle = 0;
 
+	await ea.addElementsToView(false, true, true);
 }

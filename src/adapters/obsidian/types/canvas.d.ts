@@ -1,10 +1,7 @@
 import { TFile, TextFileView } from "obsidian";
-import { AllCanvasNodeData, CanvasNodeData, type CanvasData } from "obsidian/canvas";
+import { AllCanvasNodeData, CanvasNodeData, type CanvasData, CanvasEdgeData } from "obsidian/canvas";
 
-class CanvasEdge {
-	new();
 
-}
 export function isInstanceofCanvasEdge()
 export interface CanvasView extends TextFileView {
 	canvas: ObsidianCanvas;
@@ -30,6 +27,8 @@ export interface ObsidianCanvas {
 		save?: boolean,
 		focus?: boolean,
 	}) => CanvasTextNode,
+	edges: Map<string, CanvasEdgeNode>,
+	addEdge: (edge: CanvasEdgeNode) => void,
 	getData: () => CanvasData,
 	importData: (data: CanvasData) => void,
 	requestFrame: () => Promise<void>,
@@ -61,6 +60,10 @@ export interface CanvasFileNode extends CanvasNodeData {
 export interface CanvasTextNode extends CanvasNodeData {
 	text: string,
 	setText: (text: string) => void,
+}
+
+export interface CanvasEdgeNode extends CanvasEdgeData {
+	setLabel: (label?: string) => void
 }
 
 

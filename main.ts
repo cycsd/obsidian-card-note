@@ -28,6 +28,7 @@ interface CardNoteSettings {
 	columnWidth: number,
 	rowHeight: number,
 	autoLink: boolean,
+	arrowTo: 'from' | 'end' | 'both' | 'none',
 	defaultLinkLabel?: string,
 }
 
@@ -38,6 +39,7 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 	columnWidth: 250,
 	rowHeight: 250,
 	autoLink: false,
+	arrowTo: 'end'
 };
 export default class CardNote extends Plugin {
 	settings: CardNoteSettings = DEFAULT_SETTINGS;
@@ -48,20 +50,83 @@ export default class CardNote extends Plugin {
 		this.registerView(
 			VIEW_TYPE_CARDNOTESEARCH,
 			(leaf) => new CardSearchView(leaf, this)
-		)
+		);
 		this.addRibbonIcon("scan-search",
 			"Search Notes",
-			() => this.activateView())
-		this.addCommand({
-			id: 'auto-link',
-			name: 'auto link edge',
-			callback: () => {
-				this.settings.autoLink = true;
-				this.saveSettings();
-			}
-		})
+			() => this.activateView());
+		this.addCommands();
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new CardNoteTab(this.app, this));
+	}
+	addCommands() {
+		this.addCommand({
+			id: 'auto-link',
+			name: 'Enable Auto Link',
+			checkCallback: this.changeAutoLinkSettings(
+				() => !this.settings.autoLink,
+				() => {
+					this.settings.autoLink = true
+				}
+			)
+		})
+		this.addCommand({
+			id: 'cancel-auto-link',
+			name: 'Disable Auto Link',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.autoLink,
+				() => {
+					this.settings.autoLink = false
+				})
+		})
+		this.addCommand({
+			id: 'arrow-to-from',
+			name: 'Arrow to From',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.arrowTo !== 'from',
+				() => {
+					this.settings.arrowTo = 'from'
+				})
+		})
+		this.addCommand({
+			id: 'arrow-to-end',
+			name: 'Arrow to End',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.arrowTo !== 'end',
+				() => {
+					this.settings.arrowTo = 'end'
+				})
+		})
+		this.addCommand({
+			id: 'arrow-to-both',
+			name: 'Arrow to Both',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.arrowTo !== 'both',
+				() => {
+					this.settings.arrowTo = 'both'
+				})
+		})
+		this.addCommand({
+			id: 'arrow-to-none',
+			name: 'Arrow to None',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.arrowTo !== 'none',
+				() => {
+					this.settings.arrowTo = 'none'
+				})
+		})
+
+	}
+	changeAutoLinkSettings(check: () => boolean, action: () => void) {
+		return (checking: boolean) => {
+			if (check()) {
+				if (!checking) {
+					action();
+					this.saveSettings();
+				}
+				return true
+			}
+			return false
+		}
 	}
 	async activateView() {
 		const { workspace } = this.app;
@@ -414,6 +479,12 @@ export default class CardNote extends Plugin {
 		)
 			.openFile(file, openState)
 	}
+	arrowToFrom() {
+		return this.settings.arrowTo == 'both' || this.settings.arrowTo == 'from'
+	}
+	arrowToEnd() {
+		return this.settings.arrowTo == 'both' || this.settings.arrowTo == 'end'
+	}
 }
 
 class CardNoteTab extends PluginSettingTab {
@@ -474,5 +545,6 @@ class CardNoteTab extends PluginSettingTab {
 			}
 			);
 	}
+
 }
 
