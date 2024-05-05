@@ -666,7 +666,7 @@ export const dragExtension = (plugin: CardNote) => {
 								const edgeID = plugin.createRandomHexString(16);
 								const fromEnd = plugin.arrowToFrom() ? 'arrow' : 'none';
 								const toEnd = plugin.arrowToEnd() ? 'arrow' : 'none';
-								const label = plugin.settings.defaultLinkLabel ?? 'to';
+								const label = plugin.settings.defaultLinkLabel;
 								const edgeSample = dropCanvas.edges.values().next().value;
 								if (edgeSample) {
 									// @ts-ignore: Wait for the Obsidian API then fix this lack of proper constructor

@@ -18,6 +18,7 @@ import { FILENAMEREPLACE, HEADINGREPLACE, LinkToChanges, createFullPath } from "
 import type { CanvasData, CanvasFileData, AllCanvasNodeData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { CardSearchView, VIEW_TYPE_CARDNOTESEARCH } from "src/view/cardSearchView";
+import { LinkSettingModel } from "src/ui/linkSettings";
 
 
 
@@ -59,6 +60,16 @@ export default class CardNote extends Plugin {
 		this.addSettingTab(new CardNoteTab(this.app, this));
 	}
 	addCommands() {
+		this.addCommand({
+			id: 'set-label',
+			name: 'Set Default Label',
+			callback: () => {
+				new LinkSettingModel(this, (value) => {
+					this.settings.defaultLinkLabel = value;
+					this.saveSettings();
+				}).open()
+			}
+		})
 		this.addCommand({
 			id: 'auto-link',
 			name: 'Enable Auto Link',

@@ -102,18 +102,20 @@ export async function addLink(fromNodeId: string, toNodeId: string, view: Excali
 		startArrowHead: plugin.arrowToFrom() ? 'arrow' : null,
 		endArrowHead: plugin.arrowToEnd() ? 'arrow' : null,
 	});
-	const label = plugin.settings.defaultLinkLabel ?? 'to';
-	const labelId = ea.addLabelToLine(edgeId, label);
-	const edge = ea.elementsDict[edgeId];
-	edge.boundElements.push(
-		{
-			type: "text",
-			id: labelId,
-		}
-	);
-	const labelElement = ea.elementsDict[labelId];
-	labelElement.containerId = edgeId;
-	labelElement.angle = 0;
+	const label = plugin.settings.defaultLinkLabel;
+	if (label) {
+		const labelId = ea.addLabelToLine(edgeId, label);
+		const edge = ea.elementsDict[edgeId];
+		edge.boundElements.push(
+			{
+				type: "text",
+				id: labelId,
+			}
+		);
+		const labelElement = ea.elementsDict[labelId];
+		labelElement.containerId = edgeId;
+		labelElement.angle = 0;
+	}
 
 	await ea.addElementsToView(false, true, true);
 }
