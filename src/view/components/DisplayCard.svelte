@@ -37,7 +37,8 @@
 		insertEmbeddableOnDrawing,
 		isExcalidrawView,
 	} from "src/adapters/obsidian-excalidraw-plugin";
-	
+	import { onMount } from "svelte";
+
 	export let file: TFile;
 	export let view: CardSearchView;
 	export let cellStyle: StyleObject;
@@ -165,7 +166,7 @@
 			da.matchCache?.forEach(async (noteChache) => {
 				const container = ele.createDiv(),
 					section = noteChache.section,
-					sr = noteChache.matchResult; 
+					sr = noteChache.matchResult;
 				if (sr) {
 					const openFileOnMatch = async (e: MouseEvent) => {
 						if (e.target instanceof HTMLAnchorElement) {
@@ -176,7 +177,7 @@
 								eState: {
 									match: {
 										content: (await data).content,
-										matches: sr.matches.map(m=>m.match),
+										matches: sr.matches.map((m) => m.match),
 									},
 								},
 							});
@@ -247,10 +248,9 @@
 	class={onHover ? "showScroll" : "hiddenContent"}
 	draggable="true"
 >
-	{#if onHover && file.parent && file.parent.path !== "/"}
-		<h2>{`${file.parent.path}/${file.basename}`}</h2>
-	{:else}
-		<h2>{file.basename}</h2>
+	<h2>{file.basename}</h2>
+	{#if file.parent && file.parent.path !== "/"}
+		<h4>{file.parent?.path}/</h4>
 	{/if}
 	{#await data}
 		<div>loading...</div>

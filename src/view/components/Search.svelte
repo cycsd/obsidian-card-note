@@ -14,12 +14,13 @@
 		type StyleObject,
 		FixedSizeGrid,
 		type GridOnScrollProps,
+		styleString,
 	} from "svelte-window";
 	import AutoSizer from "svelte-virtualized-auto-sizer";
-	import DisplayCard from "./DisplayCard.svelte";
 	import type { CardSearchView } from "../cardSearchView";
 	import ComputeLayout from "./ComputeLayout.svelte";
 	import PrepareLoad, {
+		type FileMatch,
 		type TFileContainer,
 	} from "./PrepareLoad.svelte";
 	import {
@@ -32,9 +33,29 @@
 		type SortMethod,
 		sortByRelated,
 		search as simpleSearch,
+		sortByName,
 	} from "./SearchUtil.svelte";
 	import ButtonGroups, { type Button } from "./ButtonGroups.svelte";
 	import SortingFiles from "./SortingFiles.svelte";
+	import { createSearchPanel } from "./SearchPanel.svelte";
+	import FilesLayout from "./FilesLayout.svelte";
+	import { derived, writable, type Readable } from "svelte/store";
+	import {
+		search as searchByObsidian,
+		sortByCreateTime as byCreateTime,
+		sortByModifiedTime as byModifiedTime,
+		sortByRelated as byRelated,
+		sortByName as byName,
+		Seq,
+		type SortMethod as Sort,
+		type File,
+		type FileMatch as FM,
+		type SearchedFile,
+		isSearchedFile,
+	} from "src/file";
+	import Card from "src/view/components/Card.svelte";
+	import Index from "../Index.svelte";
+	import SearchInput, { type SearchSettings } from "./searchInput.svelte";
 
 	export let view: CardSearchView;
 
@@ -42,7 +63,71 @@
 	let rowHeight = view.plugin.settings.rowHeight;
 	let showLayoutMenu = false;
 	const gutter = 30;
-
+	const filesNew = writable<TFile[]>([]);
+	const searchSettings = writable<SearchSettings>({
+		useRegex: false,
+		showSearchDetail:false
+	});
+	const queryNew = writable("");
+	const include = writable("");
+	const exclude = writable("");
+	const sortMethodNew = writable(byModifiedTime);
+	const seqNew = writable(Seq.descending);
+	const filesReadyForSearch: Readable<TFile[]> = derived(
+		[filesNew, include, exclude],
+		([$files, $include, $exclude], set) => {
+			const includeFiles = $files.filter((file) => {
+				const remove =
+					$exclude.length != 0 &&
+					new RegExp($exclude).test(file.path);
+				const need =
+					$include.length == 0 ||
+					new RegExp($include).test(file.path);
+				return !remove && need;
+			});
+			set(includeFiles);
+		},
+	);
+	const searchedFiles: Readable<File[]> = derived(
+		[filesReadyForSearch, queryNew],
+		([$files, $query], set) => {
+			const validFilesExtension = ["md"];
+			const searchMethod = searchByObsidian(
+				$query,
+				(f) => validFilesExtension.contains(f.extension),
+				view,
+			);
+			const finds =
+				$query.length !== 0
+					? Promise.all($files.map(searchMethod)).then(
+							(files) =>
+								files.filter(
+									(f) => f !== undefined,
+								) as SearchedFile[],
+						)
+					: Promise.resolve(
+							$files.filter((f) =>
+								validFilesExtension.contains(f.extension),
+							),
+						);
+			finds.then((data) => set(data));
+		},
+		[] as File[],
+	);
+	const filesDisplay: Readable<FM[]> = derived(
+		[searchedFiles, sortMethodNew, seqNew],
+		([$files, $sortMethod, $seq], set) => {
+			const sortM: Sort =
+				$seq === Seq.descending
+					? (a, b) => -$sortMethod(a, b)
+					: $sortMethod;
+			const sortFiles = $files.map((f) =>
+				isSearchedFile(f) ? f : { file: f },
+			);
+			sortFiles.sort(sortM);
+			set(sortFiles);
+		},
+	);
 	let originFiles: TFileContainer[] = [];
 	let query = "";
 	let sortMethod = sortByModifiedTime;
@@ -57,9 +142,9 @@
 
 	$: files = getDisplayFiles(view, originFiles, query);
 
-
 	let rowCount: number;
 	onMount(() => {
+		$filesNew = view.app.vault.getFiles();
 		originFiles = view.app.vault
 			.getMarkdownFiles()
 			.map((file) => ({ file }));
@@ -176,35 +261,40 @@
 				rowHeight = value;
 			});
 	};
-	const sortSeq: Button<SEQ>[] = [
+	const sortSeq: Button<Seq>[] = [
 		{
 			icon: "arrow-down-narrow-wide",
 			toolTip: "asc",
-			value: ascending,
+			value: Seq.ascending,
 		},
 		{
 			icon: "arrow-up-narrow-wide",
 			toolTip: "desc",
-			value: descending,
+			value: Seq.descending,
 			active: true,
 		},
 	];
-	const sortMethods: Button<SortMethod>[] = [
+	const sortMethods: Button<Sort>[] = [
+		{
+			icon: "file-type-2",
+			toolTip: "name",
+			value: byName,
+		},
 		{
 			icon: "file-plus-2",
 			toolTip: "last created",
-			value: sortByCreateTime,
+			value: byCreateTime,
 		},
 		{
 			icon: "file-clock",
 			toolTip: "last modified",
-			value: sortByModifiedTime,
+			value: byModifiedTime,
 			active: true,
 		},
 		{
 			icon: "file-search",
 			toolTip: "related",
-			value: sortByRelated,
+			value: byRelated,
 		},
 	];
 
@@ -249,21 +339,25 @@
 		2000,
 	);
 	let grid: FixedSizeGrid;
+
+	// const filesss = createSearchPanel(pl)
 </script>
 
-<div use:search></div>
-<div
-	on:click={(e) => {
-		grid.scrollTo({ scrollLeft: 0, scrollTop: 1600 });
-	}}
->
-</div>
+<SearchInput
+	query={queryNew}
+	{include}
+	{exclude}
+	settings={searchSettings}
+	debounceTime={500}
+></SearchInput>
+<!-- <div use:search></div> -->
 <div class="searchMenuBar">
 	<div>
 		{#await files}
 			Search...
 		{:then f}
 			{f.length} results
+			{$filesDisplay.length} results
 		{/await}
 	</div>
 	<div class="buttonBar">
@@ -277,71 +371,144 @@
 		<ButtonGroups
 			buttons={sortMethods}
 			onclick={(e, value) => {
-				sortMethod = value;
+				$sortMethodNew = value;
 			}}
 		></ButtonGroups>
 		<ButtonGroups
 			buttons={sortSeq}
 			onclick={(e, value) => {
-				seq = value;
+				$seqNew = value;
 			}}
 		></ButtonGroups>
 	</div>
 </div>
 <AutoSizer let:width={childWidth} let:height={childHeight}>
-	{#await files then f}
+	<svelte:fragment>
 		<ComputeLayout
 			viewHeight={childHeight ?? 1000}
 			viewWidth={childWidth ?? 1000}
 			{columnWidth}
 			gap={gutter}
-			totalCount={f.length}
+			totalCount={$filesDisplay.length}
 			let:gridProps
 		>
-			<SortingFiles files={f} {sortMethod} {seq} let:files={sortFiles}>
-				<Grid
-					bind:this={grid}
-					initialScrollTop={offset.scrollTop}
-					columnCount={gridProps.columns}
-					columnWidth={columnWidth + gutter}
-					height={childHeight ?? 500}
-					rowCount={gridProps.rows}
-					rowHeight={rowHeight + gutter}
-					width={childWidth ?? 500}
-					useIsScrolling
-					overscanRowCount={1}
-					onScroll={rememberScrollOffsetForFileUpdate}
-					let:items
+			<Grid
+				bind:this={grid}
+				initialScrollTop={offset.scrollTop}
+				columnCount={gridProps.columns}
+				columnWidth={columnWidth + gutter}
+				height={childHeight ?? 500}
+				rowCount={gridProps.rows}
+				rowHeight={rowHeight + gutter}
+				width={childWidth ?? 500}
+				onScroll={rememberScrollOffsetForFileUpdate}
+				let:items
+			>
+				<Index {items} columnCount={gridProps.columns} let:item={cell}>
+					{#if cell.index < $filesDisplay.length}
+						<Card
+							app={view.app}
+							cellStyle={computeGapStyle(
+								cell.gridProps.style,
+								gridProps.padding,
+							)}
+							component={view}
+							fileMatch={$filesDisplay[cell.index]}
+						></Card>
+					{/if}
+				</Index>
+				<!-- {#each items as item}
+					{#if index(item, gridProps.columns, $filesDisplay.length) !== null}
+						<Card
+							app={view.app}
+							cellStyle={computeGapStyle(
+								item.style,
+								gridProps.padding,
+							)}
+							component={view}
+							fileMatch={$filesDisplay[
+								index(
+									item,
+									gridProps.columns,
+									$filesDisplay.length,
+								) ?? 0
+							]}
+						></Card>
+					{:else if index(item, gridProps.columns, $filesDisplay.length)}
+						<div
+							style={styleString(
+								computeGapStyle(item.style, gridProps.padding),
+							)}
+						>
+							loading...
+						</div>
+					{/if}
+				{/each} -->
+			</Grid>
+		</ComputeLayout>
+		<!-- {#await files then f}
+			<ComputeLayout
+				viewHeight={childHeight ?? 1000}
+				viewWidth={childWidth ?? 1000}
+				{columnWidth}
+				gap={gutter}
+				totalCount={f.length}
+				let:gridProps
+			>
+				<SortingFiles
+					files={f}
+					{sortMethod}
+					{seq}
+					let:files={sortFiles}
 				>
-					{#each items as it}
-						{#if index(it, gridProps.columns, f.length) !== null}
-							<PrepareLoad
-								{view}
-								source={sortFiles[
-									index(it, gridProps.columns, f.length) ?? 0
-								]}
-								let:item
-							>
-								<DisplayCard
-									file={item.file}
+					<Grid
+						bind:this={grid}
+						initialScrollTop={offset.scrollTop}
+						columnCount={gridProps.columns}
+						columnWidth={columnWidth + gutter}
+						height={childHeight ?? 500}
+						rowCount={gridProps.rows}
+						rowHeight={rowHeight + gutter}
+						width={childWidth ?? 500}
+						useIsScrolling
+						overscanRowCount={1}
+						onScroll={rememberScrollOffsetForFileUpdate}
+						let:items
+					>
+						{#each items as it}
+							{#if index(it, gridProps.columns, f.length) !== null}
+								<PrepareLoad
 									{view}
-									cellStyle={computeGapStyle(
-										it.style,
-										gridProps.padding,
-									)}
-									data={item.data}
-								></DisplayCard>
-							</PrepareLoad>
-							<!-- {:else}
+									source={sortFiles[
+										index(
+											it,
+											gridProps.columns,
+											f.length,
+										) ?? 0
+									]}
+									let:item
+								>
+									<DisplayCard
+										file={item.file}
+										{view}
+										cellStyle={computeGapStyle(
+											it.style,
+											gridProps.padding,
+										)}
+										data={item.data}
+									></DisplayCard>
+								</PrepareLoad>
+								{:else}
 						{it.isScrolling
 							? "Scrolling"
-							: `Row ${it.rowIndex} - Col ${it.columnIndex}`} -->
-						{/if}
-					{/each}
-				</Grid>
-			</SortingFiles>
-		</ComputeLayout>
-	{/await}
+							: `Row ${it.rowIndex} - Col ${it.columnIndex}`}
+							{/if}
+						{/each}
+					</Grid>
+				</SortingFiles>
+			</ComputeLayout>
+		{/await} -->
+	</svelte:fragment>
 </AutoSizer>
 
 <style>
@@ -362,6 +529,11 @@
 		gap: 3px;
 		/* min-width: '150px'; */
 		/* max-width: 50%; */
+	}
+	.hiddenContent {
+		border: 2px solid;
+		border-radius: 15px;
+		padding: 10px;
 	}
 	/* .b{
 		grid-template-columns: repeat(1, minmax(0, 1fr));

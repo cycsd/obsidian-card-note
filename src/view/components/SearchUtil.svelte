@@ -9,6 +9,13 @@
 	export const descending = "descending";
 	export const ascending = "ascending";
 
+	export function sortByName(a: FileCommon, b: FileCommon) {
+		return a.file.path < b.file.path
+			? -1
+			: a.file.path > b.file.path
+				? 1
+				: 0;
+	}
 	export function sortByModifiedTime(a: FileCommon, b: FileCommon) {
 		return a.file.stat.mtime - b.file.stat.mtime;
 	}
@@ -61,6 +68,6 @@
 	): Promise<TFileContainer[] | FileMatch[]> {
 		return query.length !== 0
 			? await searchFiles(query, origin, view)
-			: origin; 
+			: origin;
 	}
 </script>
