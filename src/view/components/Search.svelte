@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		SearchComponent,
 		SliderComponent,
 		TFile,
 		debounce,
@@ -14,31 +13,13 @@
 		type StyleObject,
 		FixedSizeGrid,
 		type GridOnScrollProps,
-		styleString,
 	} from "svelte-window";
 	import AutoSizer from "svelte-virtualized-auto-sizer";
 	import type { CardSearchView } from "../cardSearchView";
 	import ComputeLayout from "./ComputeLayout.svelte";
-	import PrepareLoad, {
-		type FileMatch,
-		type TFileContainer,
-	} from "./PrepareLoad.svelte";
-	import {
-		ascending,
-		descending,
-		getDisplayFiles,
-		sortByCreateTime,
-		sortByModifiedTime,
-		type SEQ,
-		type SortMethod,
-		sortByRelated,
-		search as simpleSearch,
-		sortByName,
-	} from "./SearchUtil.svelte";
+	import { type TFileContainer } from "./PrepareLoad.svelte";
+	import { getDisplayFiles } from "./SearchUtil.svelte";
 	import ButtonGroups, { type Button } from "./ButtonGroups.svelte";
-	import SortingFiles from "./SortingFiles.svelte";
-	import { createSearchPanel } from "./SearchPanel.svelte";
-	import FilesLayout from "./FilesLayout.svelte";
 	import { derived, writable, type Readable } from "svelte/store";
 	import {
 		search as searchByObsidian,
@@ -52,10 +33,13 @@
 		type FileMatch as FM,
 		type SearchedFile,
 		isSearchedFile,
+		validCacheReadFilesExtension,
+		searchByRegex,
 	} from "src/file";
 	import Card from "src/view/components/Card.svelte";
 	import Index from "../Index.svelte";
 	import SearchInput, { type SearchSettings } from "./searchInput.svelte";
+	import { tryCreateRegex } from "src/utility";
 
 	export let view: CardSearchView;
 
@@ -65,51 +49,72 @@
 	const gutter = 30;
 	const filesNew = writable<TFile[]>([]);
 	const searchSettings = writable<SearchSettings>({
-		useRegex: false,
-		showSearchDetail:false
+		useRegex: view.plugin.settings.useRegex,
+		matchCase: view.plugin.settings.matchCase,
+		showSearchDetail: view.plugin.settings.showSearchDetail,
 	});
-	const queryNew = writable("");
-	const include = writable("");
-	const exclude = writable("");
+	const queryNew = writable(view.plugin.settings.query);
+	const include = writable(view.plugin.settings.include);
+	const exclude = writable(view.plugin.settings.exclude);
 	const sortMethodNew = writable(byModifiedTime);
 	const seqNew = writable(Seq.descending);
 	const filesReadyForSearch: Readable<TFile[]> = derived(
 		[filesNew, include, exclude],
 		([$files, $include, $exclude], set) => {
+			const getRemovePattern = () =>
+				tryCreateRegex($exclude) ?? {
+					test: (string: string) => false,
+				};
+			const getIncludePattern = () =>
+				tryCreateRegex($include) ?? {
+					test: (string: string) => true,
+				};
 			const includeFiles = $files.filter((file) => {
 				const remove =
-					$exclude.length != 0 &&
-					new RegExp($exclude).test(file.path);
+					$exclude.length != 0 && getRemovePattern().test(file.path);
 				const need =
-					$include.length == 0 ||
-					new RegExp($include).test(file.path);
+					$include.length == 0 || getIncludePattern().test(file.path);
 				return !remove && need;
 			});
 			set(includeFiles);
 		},
 	);
 	const searchedFiles: Readable<File[]> = derived(
-		[filesReadyForSearch, queryNew],
-		([$files, $query], set) => {
-			const validFilesExtension = ["md"];
-			const searchMethod = searchByObsidian(
-				$query,
-				(f) => validFilesExtension.contains(f.extension),
-				view,
-			);
+		[filesReadyForSearch, queryNew, searchSettings],
+		([$files, $query, $setting], set) => {
+			console.log("use regex", $setting.useRegex);
+			const searchMethod = $setting.useRegex
+				? searchByRegex($query, $setting.matchCase ? "g" : "gi")
+				: searchByObsidian($query);
 			const finds =
 				$query.length !== 0
-					? Promise.all($files.map(searchMethod)).then(
+					? Promise.all(
+							$files.map(async (file) => {
+								var fileCache = $searchedFiles.find(
+									(f) =>
+										isSearchedFile(f) &&
+										f.file.path === file.path,
+								) as SearchedFile | undefined;
+								var content =
+									fileCache &&
+									fileCache.file.stat.mtime ===
+										file.stat.mtime
+										? Promise.resolve(fileCache.content)
+										: validCacheReadFilesExtension.contains(
+													file.extension,
+											  )
+											? view.app.vault.cachedRead(file)
+											: Promise.resolve("");
+								const cont = await content;
+								return searchMethod(file, cont ?? "");
+							}),
+						).then(
 							(files) =>
 								files.filter(
 									(f) => f !== undefined,
 								) as SearchedFile[],
 						)
-					: Promise.resolve(
-							$files.filter((f) =>
-								validFilesExtension.contains(f.extension),
-							),
-						);
+					: Promise.resolve($files);
 			finds.then((data) => set(data));
 		},
 		[] as File[],
@@ -125,13 +130,12 @@
 				isSearchedFile(f) ? f : { file: f },
 			);
 			sortFiles.sort(sortM);
-			set(sortFiles);
+			set([...sortFiles]);
 		},
+		[] as FM[],
 	);
 	let originFiles: TFileContainer[] = [];
 	let query = "";
-	let sortMethod = sortByModifiedTime;
-	let seq: SEQ = descending;
 	let offset: GridOnScrollProps = {
 		scrollLeft: 0,
 		scrollTop: 0,
@@ -141,8 +145,18 @@
 	};
 
 	$: files = getDisplayFiles(view, originFiles, query);
+	const computeKey = (index: number) => {
+		return index < $filesDisplay.length
+			? index +
+					$filesDisplay[index].file.path +
+					$filesDisplay[index].file.stat.mtime +
+					$queryNew +
+					($queryNew.length !== 0
+						? `${$searchSettings.useRegex}${$searchSettings.matchCase}`
+						: "")
+			: index;
+	};
 
-	let rowCount: number;
 	onMount(() => {
 		$filesNew = view.app.vault.getFiles();
 		originFiles = view.app.vault
@@ -151,7 +165,7 @@
 		const vault = view.app.vault;
 		const registerVaultEvent = (callback: (f: TFile) => void) => {
 			return (tf: TAbstractFile) => {
-				if (tf instanceof TFile && tf.extension === "md") {
+				if (tf instanceof TFile) {
 					callback(tf);
 				}
 			};
@@ -159,37 +173,44 @@
 		const create = view.app.vault.on(
 			"create",
 			registerVaultEvent((newF) => {
-				originFiles = [{ file: newF }, ...originFiles];
+				// originFiles = [{ file: newF }, ...originFiles];
+				$filesNew = [...$filesNew, newF];
 			}),
 		);
 		const del = view.app.vault.on(
 			"delete",
 			registerVaultEvent((delF) => {
-				originFiles = originFiles.filter((of) => of.file !== delF);
+				// originFiles = originFiles.filter((of) => of.file !== delF);
+				$filesNew = $filesNew.filter((of) => of !== delF);
 			}),
 		);
 		const modify = view.app.vault.on(
 			"modify",
 			registerVaultEvent(async (mf) => {
-				const inMatchFile = async () => {
-					const fs = await files;
-					return fs.find((f) => f.file === mf);
-				};
-				if (
-					query.length === 0 ||
-					(await inMatchFile()) ||
-					(await simpleSearch(query, view)({ file: mf }))
-				)
-					originFiles = originFiles.map((of) =>
-						of.file === mf ? { file: mf } : of,
-					);
+				$filesNew = $filesNew.map((of) => (of === mf ? mf : of));
+
+				// const inMatchFile = async () => {
+				// 	const fs = await files;
+				// 	return fs.find((f) => f.file === mf);
+				// };
+				// if (
+				// 	query.length === 0 ||
+				// 	(await inMatchFile()) ||
+				// 	(await simpleSearch(query, view)({ file: mf }))
+				// )
+				// 	originFiles = originFiles.map((of) =>
+				// 		of.file === mf ? { file: mf } : of,
+				// 	);
 			}),
 		);
 		const rename = view.app.vault.on("rename", (tf, oldPath) =>
 			registerVaultEvent((renameFile) => {
-				originFiles = originFiles.map((of) =>
-					of.file.path === oldPath ? { file: renameFile } : of,
+				$filesNew = $filesNew.map((old) =>
+					old.path === oldPath ? renameFile : old,
 				);
+				// originFiles = originFiles.map((of) =>
+				// 	of.file.path === oldPath ? { file: renameFile } : of,
+				// );
 			})(tf),
 		);
 		const leafChange = view.app.workspace.on(
@@ -209,26 +230,36 @@
 				}
 			},
 		);
-
+		console.log("on mount");
 		return () => {
 			vault.offref(create);
 			vault.offref(modify);
 			vault.offref(del);
 			vault.offref(rename);
 			view.app.workspace.offref(leafChange);
+			view.plugin.settings.query = $queryNew;
+			view.plugin.settings.useRegex = $searchSettings.useRegex;
+			view.plugin.settings.matchCase = $searchSettings.matchCase;
+			view.plugin.settings.showSearchDetail =
+				$searchSettings.showSearchDetail;
+			view.plugin.settings.include = $include;
+			view.plugin.settings.exclude = $exclude;
+			view.plugin.saveSettings();
+			console.log("close");
 		};
 	});
 
-	const search = (ele: HTMLElement) => {
-		new SearchComponent(ele).onChange(
-			debounce((value) => {
-				query = value;
-			}, 1000),
-		);
-	};
+	// const search = (ele: HTMLElement) => {
+	// 	new SearchComponent(ele).onChange(
+	// 		debounce((value) => {
+	// 			query = value;
+	// 		}, 1000),
+	// 	);
+	// };
 	const layoutSetting = (ele: HTMLElement) => {
 		const b = new ButtonComponent(ele)
 			.setIcon("layout-grid")
+			.setTooltip("Toggle Layout Detail")
 			.onClick((e) => {
 				if (showLayoutMenu) {
 					b.removeCta();
@@ -298,17 +329,6 @@
 		},
 	];
 
-	const index = (
-		com: GridChildComponentProps,
-		columnCount: number,
-		totalCount: number,
-	) => {
-		const dataBefore = com.rowIndex * columnCount,
-			columOffest = com.columnIndex + 1,
-			dataCount = dataBefore + columOffest;
-		return dataCount <= totalCount ? dataCount - 1 : null;
-	};
-
 	const computeGapStyle = (
 		style: StyleObject,
 		padding: number,
@@ -339,8 +359,16 @@
 		2000,
 	);
 	let grid: FixedSizeGrid;
-
-	// const filesss = createSearchPanel(pl)
+	const index = (
+		com: GridChildComponentProps,
+		columnCount: number,
+		totalCount: number,
+	) => {
+		const dataBefore = com.rowIndex * columnCount,
+			columOffest = com.columnIndex + 1,
+			dataCount = dataBefore + columOffest;
+		return dataCount <= totalCount ? dataCount - 1 : null;
+	};
 </script>
 
 <SearchInput
@@ -348,17 +376,12 @@
 	{include}
 	{exclude}
 	settings={searchSettings}
-	debounceTime={500}
+	debounceTime={700}
 ></SearchInput>
 <!-- <div use:search></div> -->
 <div class="searchMenuBar">
 	<div>
-		{#await files}
-			Search...
-		{:then f}
-			{f.length} results
-			{$filesDisplay.length} results
-		{/await}
+		{$filesDisplay.length} results
 	</div>
 	<div class="buttonBar">
 		{#if showLayoutMenu}
@@ -404,110 +427,26 @@
 				onScroll={rememberScrollOffsetForFileUpdate}
 				let:items
 			>
-				<Index {items} columnCount={gridProps.columns} let:item={cell}>
-					{#if cell.index < $filesDisplay.length}
-						<Card
-							app={view.app}
-							cellStyle={computeGapStyle(
-								cell.gridProps.style,
-								gridProps.padding,
-							)}
-							component={view}
-							fileMatch={$filesDisplay[cell.index]}
-						></Card>
-					{/if}
+				<Index {items} columnCount={gridProps.columns} let:item={cells}>
+					{#each cells as cell (computeKey(cell.index))}
+						{#if cell.index < $filesDisplay.length}
+							<Card
+								{view}
+								cellStyle={computeGapStyle(
+									cell.style,
+									gridProps.padding,
+								)}
+								component={view}
+								files={$filesDisplay}
+								index={cell.index}
+							></Card>
+						{/if}
+					{/each}
+					<!-- {#if cell.index < $filesDisplay.length}
+					{/if} -->
 				</Index>
-				<!-- {#each items as item}
-					{#if index(item, gridProps.columns, $filesDisplay.length) !== null}
-						<Card
-							app={view.app}
-							cellStyle={computeGapStyle(
-								item.style,
-								gridProps.padding,
-							)}
-							component={view}
-							fileMatch={$filesDisplay[
-								index(
-									item,
-									gridProps.columns,
-									$filesDisplay.length,
-								) ?? 0
-							]}
-						></Card>
-					{:else if index(item, gridProps.columns, $filesDisplay.length)}
-						<div
-							style={styleString(
-								computeGapStyle(item.style, gridProps.padding),
-							)}
-						>
-							loading...
-						</div>
-					{/if}
-				{/each} -->
 			</Grid>
 		</ComputeLayout>
-		<!-- {#await files then f}
-			<ComputeLayout
-				viewHeight={childHeight ?? 1000}
-				viewWidth={childWidth ?? 1000}
-				{columnWidth}
-				gap={gutter}
-				totalCount={f.length}
-				let:gridProps
-			>
-				<SortingFiles
-					files={f}
-					{sortMethod}
-					{seq}
-					let:files={sortFiles}
-				>
-					<Grid
-						bind:this={grid}
-						initialScrollTop={offset.scrollTop}
-						columnCount={gridProps.columns}
-						columnWidth={columnWidth + gutter}
-						height={childHeight ?? 500}
-						rowCount={gridProps.rows}
-						rowHeight={rowHeight + gutter}
-						width={childWidth ?? 500}
-						useIsScrolling
-						overscanRowCount={1}
-						onScroll={rememberScrollOffsetForFileUpdate}
-						let:items
-					>
-						{#each items as it}
-							{#if index(it, gridProps.columns, f.length) !== null}
-								<PrepareLoad
-									{view}
-									source={sortFiles[
-										index(
-											it,
-											gridProps.columns,
-											f.length,
-										) ?? 0
-									]}
-									let:item
-								>
-									<DisplayCard
-										file={item.file}
-										{view}
-										cellStyle={computeGapStyle(
-											it.style,
-											gridProps.padding,
-										)}
-										data={item.data}
-									></DisplayCard>
-								</PrepareLoad>
-								{:else}
-						{it.isScrolling
-							? "Scrolling"
-							: `Row ${it.rowIndex} - Col ${it.columnIndex}`}
-							{/if}
-						{/each}
-					</Grid>
-				</SortingFiles>
-			</ComputeLayout>
-		{/await} -->
 	</svelte:fragment>
 </AutoSizer>
 

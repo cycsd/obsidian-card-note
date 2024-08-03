@@ -295,3 +295,14 @@ export function getRelativePosition(center: CanvasNodeData, relative: CanvasNode
 				: yR >= yEnd ? 'bottom'
 					: undefined
 }
+export type PatternMatch = {
+	test: (string: string) => boolean
+}
+export function tryCreateRegex(pattern: string, flags?: string) {
+	try {
+		return new RegExp(pattern, flags)
+	}
+	catch {
+		// return undefined
+	}
+}

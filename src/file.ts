@@ -1,5 +1,8 @@
-import { App, Component, MarkdownRenderer, prepareSimpleSearch, type SearchResult, type TFile } from "obsidian"
+import { App, Component, MarkdownRenderer, prepareSimpleSearch, renderMatches, renderResults, type SearchMatches, type SearchResult, type TFile } from "obsidian"
 import type { CardSearchView } from "./view/cardSearchView";
+import { text } from "stream/consumers";
+import { debug } from "console";
+import { tryCreateRegex } from "./utility";
 export enum Seq {
     ascending,
     descending
@@ -25,26 +28,61 @@ export type RenderPara = {
     sourcePath: string;
     component: Component;
 }
-export function search(query: string, validFiles: (file: TFile) => boolean, view: CardSearchView) {
+export function search(query: string) {
     const fuzzy = prepareSimpleSearch(query),
         searching = async (
             file: TFile,
+            content: string
         ): Promise<SearchedFile | undefined> => {
-            const content = validFiles(file)
-                ? await view.app.vault.cachedRead(file)
-                : '',
-                contentResult = fuzzy(content),
-                fileNameResult = fuzzy(file.name);
-            if (contentResult || fileNameResult) {
+            // const content = validFiles(file)
+            //     ? await view.app.vault.cachedRead(file)
+            //     : '',
+            const contentResult = fuzzy(content),
+                filePathResult = fuzzy(file.path);
+            if (contentResult || filePathResult) {
                 return {
                     file: file,
                     content,
                     match: contentResult ?? undefined,
-                    nameMatch: fileNameResult ?? undefined,
+                    nameMatch: filePathResult ?? undefined,
                 };
             }
         };
     return searching;
+}
+export function searchByRegex(query: string, flags?: string) {
+    return (file: TFile, content: string): SearchedFile | undefined => {
+        const contentMatches = regexSearch(content, tryCreateRegex(query, flags));
+        const filePathMatches = regexSearch(file.path, tryCreateRegex(query, flags));
+
+        if (contentMatches.length !== 0 || filePathMatches.length !== 0) {
+            return {
+                file,
+                content,
+                match: { score: contentMatches.length, matches: contentMatches },
+                nameMatch: { score: filePathMatches.length, matches: filePathMatches }
+            }
+        }
+
+    }
+}
+function regexSearch(content: string, regex?: RegExp): SearchMatches {
+    if (regex) {
+        let matches: SearchMatches = [];
+        while (regex.lastIndex < content.length) {
+            const match = regex.exec(content);
+            if (match) {
+                matches.push([match.index, regex.lastIndex]);
+                continue;
+            }
+            else {
+                break;
+            }
+        }
+        return matches
+    }
+    return []
+
 }
 export function sortByName(a: FileMatch, b: FileMatch) {
     return a.file.path < b.file.path
@@ -68,9 +106,24 @@ function computeScore(value: FileMatch) {
         (value.nameMatch?.score ?? -5)
     );
 }
+export function Touch(source: [number, number]) {
+    const [from, to] = source;
+
+    return (target: [number, number]) => {
+        const [start, end] = target;
+        return (end >= from && end <= to) ||
+            (start >= from && start <= to) ||
+            (start <= from && end >= to)
+    }
+}
+export function InRange(source: [number, number]) {
+    const [from, to] = source;
+    return (target: [number, number]) => {
+        const [start, end] = target;
+        return from <= start && end <= to
+    }
+}
 export function ObsidianMarkdownRender(element: HTMLElement, para: RenderPara) {
-    // console.log('div', element)
-    // console.log('render div', para)
     MarkdownRenderer.render(
         para.app,
         para.markdown,
@@ -80,18 +133,38 @@ export function ObsidianMarkdownRender(element: HTMLElement, para: RenderPara) {
     )
     // .then(() => { element.style.display = "block" })
     // return {
-    // update: (u: RenderPara) => {
-    //     console.log('update', u)
-    //     MarkdownRenderer.render(
-    //         para.app,
-    //         u.markdown,
-    //         element,
-    //         para.sourcePath,
-    //         para.component
-    //     )
-    // },
-    // destroy: () => {
-    //     element.replaceChildren();
+    //     update: (u: RenderPara) => {
+    //         element.replaceChildren();
+    //         console.log('update', u.sourcePath, 'content: ', u.markdown.substring(0, 50))
+    //         MarkdownRenderer.render(
+    //             para.app,
+    //             u.markdown,
+    //             element,
+    //             para.sourcePath,
+    //             para.component
+    //         )
+    //     },
+    // // destroy: () => {
+    // //     element.replaceChildren();
+    // // }
     // }
-    // }
+}
+export type ResultRenderPara = {
+    text: string,
+    result: SearchMatches,
+    offset?: number,
+}
+export function ObsidianResultRender(element: HTMLElement, para: ResultRenderPara) {
+
+    renderMatches(
+        element,
+        para.text,
+        para.result,
+        para.offset
+    )
+}
+export const validCacheReadFilesExtension = ["md", "canvas"]
+
+export enum SectionCacheType {
+    code = "code",
 }

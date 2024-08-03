@@ -31,6 +31,12 @@ interface CardNoteSettings {
 	autoLink: boolean,
 	arrowTo: 'from' | 'end' | 'both' | 'none',
 	defaultLinkLabel?: string,
+	query: string,
+	useRegex: boolean,
+	matchCase: boolean,
+	showSearchDetail: boolean,
+	include: string,
+	exclude: string,
 }
 
 const DEFAULT_SETTINGS: CardNoteSettings = {
@@ -40,7 +46,13 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 	columnWidth: 250,
 	rowHeight: 250,
 	autoLink: false,
-	arrowTo: 'end'
+	arrowTo: 'end',
+	query: "string",
+	useRegex: false,
+	matchCase: false,
+	showSearchDetail: false,
+	include: "",
+	exclude: "",
 };
 export default class CardNote extends Plugin {
 	settings: CardNoteSettings = DEFAULT_SETTINGS;
@@ -413,7 +425,7 @@ export default class CardNote extends Plugin {
 		dragContentEle.style.borderRadius = '10px';
 		dragContentEle.style.border = 'solid';
 		//https://stackoverflow.com/questions/55095367/while-drag-over-the-absolute-element-drag-leave-event-has-been-trigger-continuo
-		//closing pointer events can prevent dragbackground's dragleave event be triggerd when the mouse move quickly from background to dragcontent element.
+		//closing pointer events can prevent dragbackground's dragleave event from being triggerd when the mouse move quickly from background to dragcontent element.
 		dragContentEle.style.pointerEvents = 'none';
 
 		const dragoverBackground = document.createElement('div');

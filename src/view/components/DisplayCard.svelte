@@ -163,10 +163,10 @@
 	};
 	const loading = (ele: HTMLElement, da: NoteContent) => {
 		if (da.matchCache && da.matchCache.length !== 0) {
-			da.matchCache?.forEach(async (noteChache) => {
+			da.matchCache?.forEach(async (noteCache) => {
 				const container = ele.createDiv(),
-					section = noteChache.section,
-					sr = noteChache.matchResult;
+					section = noteCache.section,
+					sr = noteCache.matchResult;
 				if (sr) {
 					const openFileOnMatch = async (e: MouseEvent) => {
 						if (e.target instanceof HTMLAnchorElement) {

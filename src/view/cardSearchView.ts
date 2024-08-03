@@ -25,4 +25,7 @@ export class CardSearchView extends ItemView {
             },
         })
     }
+    protected async onClose(): Promise<void> {
+        this.component?.$destroy()
+    }
 }

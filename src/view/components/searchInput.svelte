@@ -1,22 +1,20 @@
 <script lang="ts" context="module">
-	export type SearchSettings ={
+	export type SearchSettings = {
 		showSearchDetail: boolean;
-		useRegex:boolean,
-	}
+		useRegex: boolean;
+		matchCase: boolean;
+	};
 </script>
 
 <script lang="ts">
-	import { debounce, SearchComponent } from "obsidian";
+	import { debounce } from "obsidian";
 	import {
-	obsdianToggleButton as obsidianToggleButton,
-		obsidianButton,
+		obsdianToggleButton as obsidianToggleButton,
 		obsidianSearch,
 		obsidianText,
-		obsidianToggle,
 		type useButton,
 		type useSearch,
 		type useText,
-		type useToggle,
 	} from "./obsidian/useComponent";
 	import { writable, type Writable } from "svelte/store";
 
@@ -27,7 +25,7 @@
 	export let settings: Writable<SearchSettings>;
 
 	const bindInput: useSearch = (comp) => {
-		comp.onChange(
+		comp.setValue($query).onChange(
 			debounce((text) => {
 				$query = text;
 			}, debounceTime),
@@ -35,59 +33,87 @@
 		// .inputEl.addClass("no-border-search-input")
 	};
 	const regexButton: useButton = (comp) => {
-		$settings.useRegex && comp.setCta();
 		comp.setIcon("regex")
 			.setTooltip("Use Regular Expression")
 			.onClick((e) => {
-				const current = $settings;
-				if (current.useRegex) {
-					comp.removeCta();
-				} else {
-					comp.setCta();
-				}
-				$settings.useRegex = !current.useRegex ;
-			})
+				$settings.useRegex = !$settings.useRegex;
+			});
 	};
-	const showSearchDetail:useButton=(button)=>{
-		// $settings.showSearchDetail && button.setCta()
-		button.setButtonText("...")
-		.setTooltip("Toggle Search Detail")
-		.onClick(()=>{
-			$settings.showSearchDetail = !$settings.showSearchDetail
-		})
-	}
+	const matchCaseButton: useButton = (comp) => {
+		comp.setIcon("case-sensitive")
+			.setTooltip("Match Case")
+			.onClick((e) => {
+				$settings.matchCase = !$settings.matchCase;
+			});
+	};
+	const showSearchDetail: useButton = (button) => {
+		button
+			.setButtonText("...")
+			.setTooltip("Toggle Search Detail")
+			.onClick(() => {
+				$settings.showSearchDetail = !$settings.showSearchDetail;
+			});
+	};
 	const setTexInputStyle = (inputEl: HTMLInputElement) => {
 		inputEl.setCssStyles({ width: "100%" });
 	};
 	const includeText: useText = (comp) => {
 		setTexInputStyle(
-			comp.onChange(
-				debounce((text) => {
-					$include = text;
-				}, debounceTime),
-			).inputEl,
+			comp
+				.setValue($include)
+				.onChange(
+					debounce((text) => {
+						$include = text;
+					}, debounceTime),
+				)
+				.setPlaceholder("e.g. .*\\.md").inputEl,
 		);
 	};
 	const excludeText: useText = (comp) => {
 		setTexInputStyle(
-			comp.onChange(
-				debounce((text) => {
-					$exclude = text;
-				}, debounceTime),
-			).inputEl,
+			comp
+				.setValue($exclude)
+				.onChange(
+					debounce((text) => {
+						$exclude = text;
+					}, debounceTime),
+				)
+				.setPlaceholder("e.g. .*\\.png").inputEl,
 		);
 	};
 </script>
 
 <div class="searchBar">
 	<div use:obsidianSearch={bindInput} style:width="100%"></div>
-	<div style:position="absolute" style:inset-inline-end="50px">
-		<div use:obsidianToggleButton={{buttonSetting:regexButton,toggle:()=>$settings.useRegex}}></div>
+	<div
+		style:position="absolute"
+		style:inset-inline-end="50px"
+		style:display="flex"
+	>
+		<div
+			use:obsidianToggleButton={{
+				buttonSetting: matchCaseButton,
+				toggle: () => $settings.matchCase,
+			}}
+		></div>
+		<div
+			use:obsidianToggleButton={{
+				buttonSetting: regexButton,
+				toggle: () => $settings.useRegex,
+			}}
+		></div>
 	</div>
 </div>
-<div use:obsidianToggleButton={{buttonSetting: showSearchDetail,toggle:()=>$settings.showSearchDetail}}></div>
+<div
+	use:obsidianToggleButton={{
+		buttonSetting: showSearchDetail,
+		toggle: () => $settings.showSearchDetail,
+	}}
+></div>
 {#if $settings.showSearchDetail}
+	<div>files to include</div>
 	<div use:obsidianText={includeText}></div>
+	<div>files to exclude</div>
 	<div use:obsidianText={excludeText}></div>
 {/if}
 
