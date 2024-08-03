@@ -1,7 +1,4 @@
-import { App, Component, MarkdownRenderer, prepareSimpleSearch, renderMatches, renderResults, type SearchMatches, type SearchResult, type TFile } from "obsidian"
-import type { CardSearchView } from "./view/cardSearchView";
-import { text } from "stream/consumers";
-import { debug } from "console";
+import { App, Component, MarkdownRenderer, prepareSimpleSearch, renderMatches, type SearchMatches, type SearchResult, type TFile } from "obsidian"
 import { tryCreateRegex } from "./utility";
 export enum Seq {
     ascending,
@@ -34,9 +31,6 @@ export function search(query: string) {
             file: TFile,
             content: string
         ): Promise<SearchedFile | undefined> => {
-            // const content = validFiles(file)
-            //     ? await view.app.vault.cachedRead(file)
-            //     : '',
             const contentResult = fuzzy(content),
                 filePathResult = fuzzy(file.path);
             if (contentResult || filePathResult) {
@@ -131,23 +125,6 @@ export function ObsidianMarkdownRender(element: HTMLElement, para: RenderPara) {
         para.sourcePath,
         para.component
     )
-    // .then(() => { element.style.display = "block" })
-    // return {
-    //     update: (u: RenderPara) => {
-    //         element.replaceChildren();
-    //         console.log('update', u.sourcePath, 'content: ', u.markdown.substring(0, 50))
-    //         MarkdownRenderer.render(
-    //             para.app,
-    //             u.markdown,
-    //             element,
-    //             para.sourcePath,
-    //             para.component
-    //         )
-    //     },
-    // // destroy: () => {
-    // //     element.replaceChildren();
-    // // }
-    // }
 }
 export type ResultRenderPara = {
     text: string,

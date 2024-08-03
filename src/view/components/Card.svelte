@@ -50,7 +50,10 @@
 	import { curryRight, take, uniqWith } from "lodash";
 	import type { CardSearchView } from "../cardSearchView";
 	import { isObsidianCanvasView } from "src/adapters/obsidian";
-	import { insertEmbeddableOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
+	import {
+		insertEmbeddableOnDrawing,
+		isExcalidrawView,
+	} from "src/adapters/obsidian-excalidraw-plugin";
 
 	export let view: CardSearchView;
 	export let component: Component;
@@ -63,7 +66,7 @@
 	let contents: SectionContent[] = [];
 	let onHover = false;
 	let showContentCounts = 3;
-		let listener: {
+	let listener: {
 		reset: () => void;
 	};
 	let dragSymbol: HTMLElement;
@@ -77,20 +80,7 @@
 		});
 		mn.showAtMouseEvent(e);
 	};
-	// const asyncSetContent = async (file: FileMatch) => {
-	// 	const getContent = file.content
-	// 		? file.content.length === 0
-	// 			? Promise.resolve(`[[!${file.file.path}]]`)
-	// 			: Promise.resolve(file.content)
-	// 		: validCacheReadFilesExtension.contains(file.file.extension)
-	// 			? app.vault.cachedRead(file.file)
-	// 			: Promise.resolve(`[[!${file.file.path}]]`);
 
-	// 	const cont = await getContent;
-	// 	console.log("cache read", file.file.path);
-	// 	return [cont];
-	// 	// $contents = fileMatch.content ?? "";
-	// };
 	const parsing = (data?: string) => {
 		if (data) {
 			const cache = app.metadataCache.getFileCache(fileMatch.file);
@@ -166,13 +156,10 @@
 	};
 	const onOpenFile = (e: MouseEvent) => {
 		const target = e.target;
-		console.log("run on paraent default");
-
 		if (target instanceof HTMLAnchorElement) {
 			if (target.classList.contains("internal-link")) {
 				const linktext = target.getAttribute("data-href");
 				if (linktext) {
-					console.log("run anchor default");
 					view.app.workspace.openLinkText(
 						linktext,
 						fileMatch.file.path,
@@ -187,10 +174,6 @@
 		}
 	};
 	const setContent = async () => {
-		// console.log("onmmount create new", fileMatch);
-
-		const link = app.fileManager.generateMarkdownLink(fileMatch.file, "");
-		// console.log("link", link);
 		const content = validCacheReadFilesExtension.contains(
 			fileMatch.file.extension,
 		)
@@ -198,24 +181,24 @@
 				? Promise.resolve(fileMatch.content)
 				: app.vault.cachedRead(fileMatch.file)
 			: Promise.resolve(fileMatch.content);
-		// fileMatch.content
-		// 	? fileMatch.content.length === 0
-		// 		? Promise.resolve(`${link}`)
-		// 		: Promise.resolve(fileMatch.content)
-		// 	: validCacheReadFilesExtension.contains(fileMatch.file.extension)
-		// 		? app.vault.cachedRead(fileMatch.file)
-		// 		: Promise.resolve(`${link}`);
 		data = await content;
-		contents = parsing(data) ?? [{ content: link }];
+		contents = parsing(data) ?? [
+			{
+				content: app.fileManager.generateMarkdownLink(
+					fileMatch.file,
+					"",
+				),
+			},
+		];
 	};
-		const dragCard = (dragStart: DragEvent) => {
+	const dragCard = (dragStart: DragEvent) => {
 		const createFileInView = (drop: DragEvent) => {
 			const drawView = view.plugin.getDropView(drop);
 
 			if (isObsidianCanvasView(drawView)) {
 				const pos = drawView.canvas.posFromEvt(drop);
 				drawView.canvas.createFileNode({
-					file:fileMatch.file,
+					file: fileMatch.file,
 					pos,
 					save: true,
 				});
@@ -251,7 +234,7 @@
 		setTimeout(async () => {
 			listener = view.plugin.listenDragAndDrop(
 				dragStart,
-				data??"",
+				data ?? "",
 				createFileInView,
 			);
 		});
@@ -278,9 +261,11 @@
 >
 	{#if fileMatch?.file}
 		<h2>{fileMatch.file.basename}</h2>
-		<h6 class="nav-file-tag" style:font-size={"12px"}>{fileMatch.file.extension !== "md"?fileMatch.file.extension:""}</h6>
+		<h6 class="nav-file-tag" style:font-size={"12px"}>
+			{fileMatch.file.extension !== "md" ? fileMatch.file.extension : ""}
+		</h6>
 		{#if fileMatch.file.parent && fileMatch.file.parent.path !== "/"}
-			<strong >{fileMatch.file.parent?.path}</strong>
+			<strong>{fileMatch.file.parent?.path}</strong>
 		{/if}
 	{/if}
 	{#each onHover ? contents : take(contents, showContentCounts) as cont, index (index)}

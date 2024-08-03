@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MarkdownRenderer, type App, type Component } from "obsidian";
+	import { type App, type Component } from "obsidian";
 	import { ObsidianMarkdownRender } from "src/file";
 
 

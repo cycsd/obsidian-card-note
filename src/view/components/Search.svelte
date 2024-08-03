@@ -9,7 +9,6 @@
 	import { onMount } from "svelte";
 	import {
 		FixedSizeGrid as Grid,
-		type GridChildComponentProps,
 		type StyleObject,
 		FixedSizeGrid,
 		type GridOnScrollProps,
@@ -17,8 +16,6 @@
 	import AutoSizer from "svelte-virtualized-auto-sizer";
 	import type { CardSearchView } from "../cardSearchView";
 	import ComputeLayout from "./ComputeLayout.svelte";
-	import { type TFileContainer } from "./PrepareLoad.svelte";
-	import { getDisplayFiles } from "./SearchUtil.svelte";
 	import ButtonGroups, { type Button } from "./ButtonGroups.svelte";
 	import { derived, writable, type Readable } from "svelte/store";
 	import {
@@ -63,11 +60,11 @@
 		([$files, $include, $exclude], set) => {
 			const getRemovePattern = () =>
 				tryCreateRegex($exclude) ?? {
-					test: (string: string) => false,
+					test: (str: string) => false,
 				};
 			const getIncludePattern = () =>
 				tryCreateRegex($include) ?? {
-					test: (string: string) => true,
+					test: (str: string) => true,
 				};
 			const includeFiles = $files.filter((file) => {
 				const remove =
@@ -82,7 +79,6 @@
 	const searchedFiles: Readable<File[]> = derived(
 		[filesReadyForSearch, queryNew, searchSettings],
 		([$files, $query, $setting], set) => {
-			console.log("use regex", $setting.useRegex);
 			const searchMethod = $setting.useRegex
 				? searchByRegex($query, $setting.matchCase ? "g" : "gi")
 				: searchByObsidian($query);
@@ -134,8 +130,7 @@
 		},
 		[] as FM[],
 	);
-	let originFiles: TFileContainer[] = [];
-	let query = "";
+
 	let offset: GridOnScrollProps = {
 		scrollLeft: 0,
 		scrollTop: 0,
@@ -144,7 +139,6 @@
 		horizontalScrollDirection: "forward",
 	};
 
-	$: files = getDisplayFiles(view, originFiles, query);
 	const computeKey = (index: number) => {
 		return index < $filesDisplay.length
 			? index +
@@ -159,9 +153,6 @@
 
 	onMount(() => {
 		$filesNew = view.app.vault.getFiles();
-		originFiles = view.app.vault
-			.getMarkdownFiles()
-			.map((file) => ({ file }));
 		const vault = view.app.vault;
 		const registerVaultEvent = (callback: (f: TFile) => void) => {
 			return (tf: TAbstractFile) => {
@@ -173,14 +164,12 @@
 		const create = view.app.vault.on(
 			"create",
 			registerVaultEvent((newF) => {
-				// originFiles = [{ file: newF }, ...originFiles];
 				$filesNew = [...$filesNew, newF];
 			}),
 		);
 		const del = view.app.vault.on(
 			"delete",
 			registerVaultEvent((delF) => {
-				// originFiles = originFiles.filter((of) => of.file !== delF);
 				$filesNew = $filesNew.filter((of) => of !== delF);
 			}),
 		);
@@ -188,19 +177,6 @@
 			"modify",
 			registerVaultEvent(async (mf) => {
 				$filesNew = $filesNew.map((of) => (of === mf ? mf : of));
-
-				// const inMatchFile = async () => {
-				// 	const fs = await files;
-				// 	return fs.find((f) => f.file === mf);
-				// };
-				// if (
-				// 	query.length === 0 ||
-				// 	(await inMatchFile()) ||
-				// 	(await simpleSearch(query, view)({ file: mf }))
-				// )
-				// 	originFiles = originFiles.map((of) =>
-				// 		of.file === mf ? { file: mf } : of,
-				// 	);
 			}),
 		);
 		const rename = view.app.vault.on("rename", (tf, oldPath) =>
@@ -208,9 +184,6 @@
 				$filesNew = $filesNew.map((old) =>
 					old.path === oldPath ? renameFile : old,
 				);
-				// originFiles = originFiles.map((of) =>
-				// 	of.file.path === oldPath ? { file: renameFile } : of,
-				// );
 			})(tf),
 		);
 		const leafChange = view.app.workspace.on(
@@ -230,7 +203,7 @@
 				}
 			},
 		);
-		console.log("on mount");
+
 		return () => {
 			vault.offref(create);
 			vault.offref(modify);
@@ -245,17 +218,9 @@
 			view.plugin.settings.include = $include;
 			view.plugin.settings.exclude = $exclude;
 			view.plugin.saveSettings();
-			console.log("close");
 		};
 	});
 
-	// const search = (ele: HTMLElement) => {
-	// 	new SearchComponent(ele).onChange(
-	// 		debounce((value) => {
-	// 			query = value;
-	// 		}, 1000),
-	// 	);
-	// };
 	const layoutSetting = (ele: HTMLElement) => {
 		const b = new ButtonComponent(ele)
 			.setIcon("layout-grid")
@@ -359,16 +324,6 @@
 		2000,
 	);
 	let grid: FixedSizeGrid;
-	const index = (
-		com: GridChildComponentProps,
-		columnCount: number,
-		totalCount: number,
-	) => {
-		const dataBefore = com.rowIndex * columnCount,
-			columOffest = com.columnIndex + 1,
-			dataCount = dataBefore + columOffest;
-		return dataCount <= totalCount ? dataCount - 1 : null;
-	};
 </script>
 
 <SearchInput
@@ -378,7 +333,6 @@
 	settings={searchSettings}
 	debounceTime={700}
 ></SearchInput>
-<!-- <div use:search></div> -->
 <div class="searchMenuBar">
 	<div>
 		{$filesDisplay.length} results
@@ -442,8 +396,6 @@
 							></Card>
 						{/if}
 					{/each}
-					<!-- {#if cell.index < $filesDisplay.length}
-					{/if} -->
 				</Index>
 			</Grid>
 		</ComputeLayout>
@@ -469,12 +421,4 @@
 		/* min-width: '150px'; */
 		/* max-width: 50%; */
 	}
-	.hiddenContent {
-		border: 2px solid;
-		border-radius: 15px;
-		padding: 10px;
-	}
-	/* .b{
-		grid-template-columns: repeat(1, minmax(0, 1fr));
-	} */
 </style>
