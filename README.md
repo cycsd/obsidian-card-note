@@ -17,12 +17,20 @@ This tool help you create a new note and insert its link into the canvas. Let yo
 
 
 # Features
-- By creating a new note, referencing blocks, or cutting, quickly excerpt the blocks you want to extract, and draw links on the canvas.
+- By creating a new note, referencing blocks, or cutting, quickly extract the blocks you want, and draw links on the canvas.
 - Dragging the first line drags the entire block.
 
   Support  foldable blocks, markdown syntax,
 
   e.g. heading, paragraph, bullet list ...
+
+# Commands
+- Enable/Disable Auto Link: toggle auto create link feature.
+- Arrow to * : When auto link is enable, select which arrow style to use for the link.
+- Set Default Label: Set the label for link created automatically.
+- Show/Hide Drag Symbol: Show or hide the drag symbol.
+
+
 
 # Translate
 [繁體中文](https://github.com/cycsd/obsidian-card-note/blob/main/TRANSLATING_ZHTW.md)
