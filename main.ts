@@ -31,6 +31,7 @@ interface CardNoteSettings {
 	autoLink: boolean,
 	arrowTo: 'from' | 'end' | 'both' | 'none',
 	defaultLinkLabel?: string,
+	showDragSymbol: boolean,
 	query: string,
 	useRegex: boolean,
 	matchCase: boolean,
@@ -47,6 +48,7 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 	rowHeight: 250,
 	autoLink: false,
 	arrowTo: 'end',
+	showDragSymbol: true,
 	query: "string",
 	useRegex: false,
 	matchCase: false,
@@ -136,7 +138,27 @@ export default class CardNote extends Plugin {
 				() => {
 					this.settings.arrowTo = 'none'
 				})
-		})
+		});
+
+		this.addCommand({
+			id: 'show-drag-symbol',
+			name: 'Show Drag Symbol',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.showDragSymbol !== true,
+				() => {
+					this.settings.showDragSymbol = true
+				})
+		});
+
+		this.addCommand({
+			id: 'hide-drag-symbol',
+			name: 'Hide Drag Symbol',
+			checkCallback: this.changeAutoLinkSettings(
+				() => this.settings.showDragSymbol !== false,
+				() => {
+					this.settings.showDragSymbol = false
+				})
+		});
 
 	}
 	changeAutoLinkSettings(check: () => boolean, action: () => void) {

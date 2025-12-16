@@ -849,7 +849,7 @@ export const dragExtension = (plugin: CardNote) => {
 			x: event.clientX,
 			y: event.clientY,
 		});
-		if (pos) {
+		if (pos && plugin.settings.showDragSymbol) {
 			const dragLine = view.state.field(dragSymbolSet);
 			const line = view.lineBlockAt(pos);
 			let hasDragPoint = false;
