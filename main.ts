@@ -1,4 +1,4 @@
-import type { BlockCache, CacheItem, HeadingCache, LinkCache, OpenViewState, WorkspaceLeaf, } from "obsidian"
+import type { BlockCache, CacheItem, HeadingCache, LinkCache, OpenViewState, } from "obsidian"
 import {
 	App,
 	MarkdownRenderer,
@@ -12,13 +12,15 @@ import {
 } from "obsidian";
 import type { LinkFilePath, LinkPath } from "src/dragUpdate";
 import { dragExtension } from "src/dragUpdate";
-import { getOffset, isCanvasFileNode, isCanvasEditorNode, isObsidianCanvasView } from "src/adapters/obsidian";
+import { getOffset, isCanvasEditorNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import type { FileInfo, LinkInfo, RequiredProperties, } from "src/utility";
 import { FILENAMEREPLACE, HEADINGREPLACE, LinkToChanges, createFullPath } from "src/utility";
 import type { CanvasData, CanvasFileData, AllCanvasNodeData } from "obsidian/canvas";
 import { isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { CardSearchView, VIEW_TYPE_CARDNOTESEARCH } from "src/view/cardSearchView";
 import { LinkSettingModel } from "src/ui/linkSettings";
+import type { Extension } from "@codemirror/state";
+import type { EditorView } from "codemirror";
 
 
 
@@ -58,10 +60,17 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 };
 export default class CardNote extends Plugin {
 	settings: CardNoteSettings = DEFAULT_SETTINGS;
-
+	hotReloadExtensions: Extension = [];
+	pluginExtensions: Extension = [];
+	toggleDragSymbol: (view: EditorView, show: boolean) => void = () => { };
 	async onload() {
 		await this.loadSettings();
-		this.registerEditorExtension(dragExtension(this));
+		const { extensions, toggleDragSymbol } = dragExtension(this);
+		this.pluginExtensions = extensions;
+		this.hotReloadExtensions = this.settings.showDragSymbol ? [...extensions] : [];
+		this.registerEditorExtension(this.hotReloadExtensions);
+		this.toggleDragSymbol = toggleDragSymbol;
+
 		this.registerView(
 			VIEW_TYPE_CARDNOTESEARCH,
 			(leaf) => new CardSearchView(leaf, this)
@@ -87,7 +96,7 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'auto-link',
 			name: 'Enable Auto Link',
-			checkCallback: this.changeAutoLinkSettings(
+			checkCallback: this.checkCallbackFactory(
 				() => !this.settings.autoLink,
 				() => {
 					this.settings.autoLink = true
@@ -97,7 +106,7 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'cancel-auto-link',
 			name: 'Disable Auto Link',
-			checkCallback: this.changeAutoLinkSettings(
+			checkCallback: this.checkCallbackFactory(
 				() => this.settings.autoLink,
 				() => {
 					this.settings.autoLink = false
@@ -106,7 +115,7 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'arrow-to-from',
 			name: 'Arrow to From',
-			checkCallback: this.changeAutoLinkSettings(
+			checkCallback: this.checkCallbackFactory(
 				() => this.settings.arrowTo !== 'from',
 				() => {
 					this.settings.arrowTo = 'from'
@@ -115,7 +124,7 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'arrow-to-end',
 			name: 'Arrow to End',
-			checkCallback: this.changeAutoLinkSettings(
+			checkCallback: this.checkCallbackFactory(
 				() => this.settings.arrowTo !== 'end',
 				() => {
 					this.settings.arrowTo = 'end'
@@ -124,7 +133,7 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'arrow-to-both',
 			name: 'Arrow to Both',
-			checkCallback: this.changeAutoLinkSettings(
+			checkCallback: this.checkCallbackFactory(
 				() => this.settings.arrowTo !== 'both',
 				() => {
 					this.settings.arrowTo = 'both'
@@ -133,7 +142,7 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'arrow-to-none',
 			name: 'Arrow to None',
-			checkCallback: this.changeAutoLinkSettings(
+			checkCallback: this.checkCallbackFactory(
 				() => this.settings.arrowTo !== 'none',
 				() => {
 					this.settings.arrowTo = 'none'
@@ -143,25 +152,52 @@ export default class CardNote extends Plugin {
 		this.addCommand({
 			id: 'show-drag-symbol',
 			name: 'Show Drag Symbol',
-			checkCallback: this.changeAutoLinkSettings(
-				() => this.settings.showDragSymbol !== true,
-				() => {
-					this.settings.showDragSymbol = true
-				})
+			editorCheckCallback: (checking, editor, ctx) => {
+
+				const checkCallback = this.checkCallbackFactory(
+					() => !this.settings.showDragSymbol,
+					() => {
+						this.settings.showDragSymbol = true;
+						const inCanvas = ctx.contentEl === undefined;
+						if (inCanvas)
+							this.toggleDragSymbol(editor.cm, this.settings.showDragSymbol);//manually refresh extensions (obsidian won't automatically refresh in canvas view)
+						const extensions = this.hotReloadExtensions as any[];
+						(this.pluginExtensions as any[]).forEach(ext => {
+							extensions.push(ext);
+						})
+						this.toggleDragSymbol(editor.cm, true);
+						this.app.workspace.updateOptions()
+					});
+				return checkCallback(checking);
+			},
 		});
 
 		this.addCommand({
 			id: 'hide-drag-symbol',
 			name: 'Hide Drag Symbol',
-			checkCallback: this.changeAutoLinkSettings(
-				() => this.settings.showDragSymbol !== false,
-				() => {
-					this.settings.showDragSymbol = false
-				})
+			editorCheckCallback: (checking, editor, ctx) => {
+				const checkCallback = this.checkCallbackFactory(
+					() => this.settings.showDragSymbol,
+					() => {
+						this.settings.showDragSymbol = false;
+						const inCanvas = ctx.contentEl === undefined;
+						if (inCanvas)
+							this.toggleDragSymbol(editor.cm, this.settings.showDragSymbol);//manually refresh extensions (obsidian won't automatically refresh in canvas view)
+						var extensions = (this.hotReloadExtensions as any[]);
+						[...Array(extensions.length).keys()].forEach(_ => {
+							extensions.pop();
+						})
+						this.app.workspace.updateOptions()
+					});
+				return checkCallback(checking);
+			},
+
+
 		});
 
 	}
-	changeAutoLinkSettings(check: () => boolean, action: () => void) {
+
+	checkCallbackFactory(check: () => boolean, action: () => void) {
 		return (checking: boolean) => {
 			if (check()) {
 				if (!checking) {

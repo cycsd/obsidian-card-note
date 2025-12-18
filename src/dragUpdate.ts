@@ -1,6 +1,6 @@
 import CardNote from "main";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
-import { StateField, StateEffect, RangeSet, Line } from "@codemirror/state";
+import { StateField, StateEffect, RangeSet, Line, Compartment } from "@codemirror/state";
 import { foldable } from "@codemirror/language";
 import type { Break, LinkInfo, RequiredProperties, } from "src/utility";
 import {
@@ -796,10 +796,12 @@ export const dragExtension = (plugin: CardNote) => {
 			reset: () => listener?.reset(),
 		};
 	};
+
 	const dragMarker = new (class extends GutterMarker {
 		destroy(dom: Node): void {
 		}
 		toDOM(view: EditorView) {
+
 			const dragSymbol = document.createElement("div");
 			dragSymbol.draggable = true;
 			const symbol = dragSymbol.createSpan();
@@ -818,6 +820,7 @@ export const dragExtension = (plugin: CardNote) => {
 	const mousemoveEffect = StateEffect.define<{ from: number, to: number }>({
 		map: (val, mapping) => ({ from: mapping.mapPos(val.from), to: mapping.mapPos(val.to) }),
 	});
+
 	const dragSymbolSet = StateField.define<RangeSet<GutterMarker>>({
 		create() {
 			return RangeSet.empty;
@@ -849,7 +852,7 @@ export const dragExtension = (plugin: CardNote) => {
 			x: event.clientX,
 			y: event.clientY,
 		});
-		if (pos && plugin.settings.showDragSymbol) {
+		if (pos) {
 			const dragLine = view.state.field(dragSymbolSet);
 			const line = view.lineBlockAt(pos);
 			let hasDragPoint = false;
@@ -871,10 +874,22 @@ export const dragExtension = (plugin: CardNote) => {
 		},
 	});
 
+	const dragCompart = new Compartment();
+	const mouseMoveCompart = new Compartment();
 
-	return [
-		dragSymbolSet,
-		mouseMoveWatch,
-	];
+	return {
+		extensions: [
+			dragCompart.of(dragSymbolSet),
+			mouseMoveCompart.of(mouseMoveWatch),
+		],
+		toggleDragSymbol: (view: EditorView, show: boolean) => {
+			view.dispatch({
+				effects: [
+					dragCompart.reconfigure(show ? dragSymbolSet : []),
+					mouseMoveCompart.reconfigure(show ? mouseMoveWatch : []),
+				],// StateEffect.reconfigure.of([])
+			});
+		}
+	};
 };
 
