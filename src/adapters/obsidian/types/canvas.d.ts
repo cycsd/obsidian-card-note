@@ -41,6 +41,7 @@ export interface CanvasFileNode extends CanvasNodeData {
 	setFilePath: (filePath: string, subpath: string) => void,
 	filePath: string,
 	subpath: string,
+	onResizeDblclick: (event: MouseEvent, position: "top" | "bottom" | "left" | "right") => void,
 	child?: {
 		//text before current
 		before: string,
@@ -55,11 +56,29 @@ export interface CanvasFileNode extends CanvasNodeData {
 		subpathNotFound: boolean,
 		//text show in canvas
 		text: string,
+		// get preview mode element
+		previewMode: {
+			renderer: {
+				previewEl: HTMLElement,
+				sizerEl: HTMLElement,
+			}
+		}
 	}
 }
 export interface CanvasTextNode extends CanvasNodeData {
 	text: string,
 	setText: (text: string) => void,
+	onResizeDblclick: (event: MouseEvent, position: "top" | "bottom" | "left" | "right") => void,
+	child?: {
+		text: string,
+		previewMode: {
+			renderer: {
+				previewEl: HTMLElement
+				sizerEl: HTMLElement
+			}
+		}
+	}
+
 }
 
 export interface CanvasEdgeNode extends CanvasEdgeData {

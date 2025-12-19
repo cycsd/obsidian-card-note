@@ -659,6 +659,7 @@ export const dragExtension = (plugin: CardNote) => {
 							subpath: target.subpath,
 							save: false,
 						});
+
 						if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
 							const fromSide = getRelativePosition(source.fileEditor, createNode);
 							if (fromSide && reverseRelative.has(fromSide)) {
@@ -699,7 +700,37 @@ export const dragExtension = (plugin: CardNote) => {
 						else {
 							await dropCanvas.requestFrame();
 						}
-						dropCanvas.requestSave()
+						// createNode.attach();
+						createNode.render();
+						// await dropCanvas.requestFrame();
+						await dropCanvas.requestSave()
+						// await dropCanvas.requestFrame();
+						// const freshView = plugin.getDropView(e);
+						// dropCanvas.nodes.forEach((node) => {
+						// 	console.log("nodes id:", node.id);
+						// 	console.log("node is create:", node.id === createNode.id, node === createNode)
+						// 	console.log("has child:", node.id === createNode.id ? createNode.child : null);
+						// });
+						// if (isObsidianCanvasView(freshView)) {
+						// const node = freshView.canvas.nodes.get(createNode.id);
+
+						// setTimeout(() => {
+						// 	fitContentHeight(createNode);
+						// }, 5000);
+
+						if (plugin.settings.fitContentHeight) {
+							const observer = new ResizeObserver((entries) => {
+								console.log(entries.length);
+								for (let entry of entries) {
+									createNode?.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
+									// fitContentHeight(createNode);
+								}
+								observer.disconnect();
+							});
+							const sizerEl = createNode.child?.previewMode?.renderer?.sizerEl;
+							if (sizerEl)
+								observer.observe(sizerEl, { box: 'content-box' });
+						}
 					},
 					updateLinks: (para) => {
 						const { linkMatch, getNewPath } = para;
@@ -892,4 +923,35 @@ export const dragExtension = (plugin: CardNote) => {
 		}
 	};
 };
+
+// function fitContentHeight(node: CanvasFileNode | CanvasTextNode) {
+// 	const previewEelment = node.child?.previewMode?.renderer?.previewEl;
+// 	console.log("fit content height:", node, node.child, node.child?.previewMode);
+// 	console.log("preview element:", previewEelment);
+// 	console.log("is shown:", previewEelment?.isShown(), previewEelment?.clientHeight, previewEelment?.scrollHeight, previewEelment?.innerHeight);
+// 	console.log("resize:", node?.resize);
+// 	if (previewEelment && previewEelment.isShown()) {
+// 		node.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
+// 		// const originStyle = previewEelment.style.height;
+// 		// // copy from Obsidian
+// 		// previewEelment.style.overflowY = 'scroll';
+// 		// for (var o = 0; o < 10; o++) {
+// 		// 	const clientHeight = previewEelment.clientHeight;
+// 		// 	previewEelment.style.height = `1px`;
+// 		// 	const scrollHeight = previewEelment.scrollHeight;
+// 		// 	previewEelment.style.height = "";
+// 		// 	const distance = scrollHeight - clientHeight + 1;
+// 		// 	console.log('clientHeight:', clientHeight, 'scrollHeight:', scrollHeight, 'distance:', distance, 'node height:', node.height);
+// 		// 	if (Math.abs(distance) < .5)
+// 		// 		break;
+// 		// 	node.resize({
+// 		// 		width: node.width,
+// 		// 		height: node.height + distance,
+// 		// 	});
+// 		// 	node.render();
+// 		// 	node.canvas.requestSave();
+// 		// }
+// 	}
+
+// }
 
