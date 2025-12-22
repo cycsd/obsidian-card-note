@@ -41,6 +41,12 @@ export interface CanvasFileNode extends CanvasNodeData {
 	setFilePath: (filePath: string, subpath: string) => void,
 	filePath: string,
 	subpath: string,
+	/**
+	 * 
+	 * {@link CanvasFileNode.child.previewMode} has the preview mode elements after this function is called.
+	 */
+	render: () => void,
+	//canvas-node-ineraction-layer call this function on resize double click
 	onResizeDblclick: (event: MouseEvent, position: "top" | "bottom" | "left" | "right") => void,
 	child?: {
 		//text before current
@@ -59,7 +65,9 @@ export interface CanvasFileNode extends CanvasNodeData {
 		// get preview mode element
 		previewMode: {
 			renderer: {
+				//markdown-preview
 				previewEl: HTMLElement,
+				//markdown-preview-sizer (this element is the child of previewEl)
 				sizerEl: HTMLElement,
 			}
 		}
@@ -68,6 +76,7 @@ export interface CanvasFileNode extends CanvasNodeData {
 export interface CanvasTextNode extends CanvasNodeData {
 	text: string,
 	setText: (text: string) => void,
+	render: () => void,
 	onResizeDblclick: (event: MouseEvent, position: "top" | "bottom" | "left" | "right") => void,
 	child?: {
 		text: string,

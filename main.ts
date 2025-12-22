@@ -152,6 +152,26 @@ export default class CardNote extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'set-fixed-size',
+			name: 'Set Fixed Size',
+			checkCallback: this.checkCallbackFactory(
+				() => this.settings.fitContentHeight,
+				() => {
+					this.settings.fitContentHeight = false;
+				})
+		});
+
+		this.addCommand({
+			id: 'fit-to-content',
+			name: 'Fit to Content',
+			checkCallback: this.checkCallbackFactory(
+				() => !this.settings.fitContentHeight,
+				() => {
+					this.settings.fitContentHeight = true;
+				})
+		});
+
+		this.addCommand({
 			id: 'show-drag-symbol',
 			name: 'Show Drag Symbol',
 			editorCheckCallback: (checking, editor, ctx) => {
