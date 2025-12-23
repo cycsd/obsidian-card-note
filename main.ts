@@ -90,6 +90,12 @@ export default class CardNote extends Plugin {
 	}
 	addCommands() {
 		this.addCommand({
+			id: 'open-search-view',
+			name: 'Open Search View',
+			callback: () => this.activateView()
+		})
+
+		this.addCommand({
 			id: 'set-label',
 			name: 'Set Default Label',
 			callback: () => {
