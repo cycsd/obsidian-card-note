@@ -649,13 +649,20 @@ export const dragExtension = (plugin: CardNote) => {
 					located: drawView,
 					draw: async (target) => {
 						const dropCanvas = drawView.canvas;
+						const size = {
+							width: plugin.settings.canvasNodeWidth,
+							height: plugin.settings.canvasNodeHeight,
+						};
+
 						const createNode = typeof (target) === 'string' ? dropCanvas.createTextNode({
 							text: target,
 							pos,
+							size,
 							focus: false,
 						}) : dropCanvas.createFileNode({
 							file: target.file,
 							pos,
+							size,
 							subpath: target.subpath,
 							save: false,
 						});

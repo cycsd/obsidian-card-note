@@ -35,6 +35,8 @@ interface CardNoteSettings {
 	defaultLinkLabel?: string,
 	showDragSymbol: boolean,
 	fitContentHeight: boolean,
+	canvasNodeHeight: number;
+	canvasNodeWidth: number;
 	query: string,
 	useRegex: boolean,
 	matchCase: boolean,
@@ -53,6 +55,8 @@ const DEFAULT_SETTINGS: CardNoteSettings = {
 	arrowTo: 'end',
 	showDragSymbol: true,
 	fitContentHeight: true,
+	canvasNodeHeight: 500,
+	canvasNodeWidth: 500,
 	query: "string",
 	useRegex: false,
 	matchCase: false,
@@ -603,7 +607,7 @@ class CardNoteTab extends PluginSettingTab {
 		containerEl.empty();
 		new Setting(containerEl)
 			.setName("Drag symbol")
-			.setDesc("You can set your prefer drag symbol here")
+			.setDesc("You can set your prefer drag symbol here.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter your drag symbol here")
@@ -626,6 +630,53 @@ class CardNoteTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 		);
+
+		new Setting(containerEl)
+			.setName("Fiexed size")
+			.setDesc(`Set a fixed size for the note created by this plugin in Canvas.`)
+			.addText((text) => {
+				text.inputEl.before("Width: ");
+				text
+					.setPlaceholder("500")
+					.setValue(this.plugin.settings.canvasNodeWidth.toString())
+					.onChange(async (value) => {
+						const rowHeight = parseInt(value);
+						if (!isNaN(rowHeight) && rowHeight > 0) {
+							this.plugin.settings.canvasNodeWidth = rowHeight;
+							await this.plugin.saveSettings();
+						}
+					});
+				text.inputEl.after('px', document.createElement('hr'));
+			})
+			.addText((text) => {
+				text.inputEl.before("Height: ");
+				text
+					.setPlaceholder("500")
+					.setValue(this.plugin.settings.canvasNodeHeight.toString())
+					.onChange(async (value) => {
+						const columnWidth = parseInt(value);
+						if (!isNaN(columnWidth) && columnWidth > 0) {
+							this.plugin.settings.canvasNodeHeight = columnWidth;
+							await this.plugin.saveSettings();
+						}
+					});
+
+				text.inputEl.after('px');
+
+			});
+		new Setting(containerEl)
+			.setName("Fit to content height")
+			.setDesc("Automatically adjust the height of the note in the canvas to fit the content height.")
+			.addToggle(toggle => {
+				toggle
+					.setValue(this.plugin.settings.fitContentHeight)
+					.onChange(async (value) => {
+						this.plugin.settings.fitContentHeight = value;
+						await this.plugin.saveSettings();
+					})
+			});
+
+
 
 	}
 	addSizeSetting() {

@@ -41,14 +41,16 @@ export async function insertEmbeddableOnDrawing(event: DragEvent, view: Excalidr
 		const id = ea.addEmbeddable(
 			pos.x,
 			pos.y,
-			MAX_IMAGE_SIZE,
-			MAX_IMAGE_SIZE,
+			plugin.settings.canvasNodeWidth,
+			plugin.settings.canvasNodeHeight,
 			fileLink,
 			file
 		)
 		await ea.addElementsToView(false, true, true);
 		ea.selectElementsInView([id]);
 		return id
+		//getEmbeddableLeafElementById
+
 		//const eb = ExcalidrawLib;
 		//const api = ea.getExcalidrawAPI();
 		//const appState = api.getAppState();
@@ -85,6 +87,10 @@ export async function createTextOnDrawing(event: DragEvent, view: ExcalidrawView
 			pos.x,
 			pos.y,
 			text,
+			{
+				width: plugin.settings.canvasNodeWidth,
+				height: plugin.settings.canvasNodeHeight,
+			}
 		)
 		await view.addElements(ea.getElements(), false, true, undefined, true);
 		return id
