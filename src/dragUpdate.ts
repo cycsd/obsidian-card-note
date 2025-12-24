@@ -611,12 +611,15 @@ export const dragExtension = (plugin: CardNote) => {
 							const createNode = typeof (target) === 'string'
 								? createTextOnDrawing(e, drawView, target, plugin)
 								: insertEmbeddableNoteOnDrawing(e, drawView, target.text, target.file, plugin);
+
+							const createNodeId = await createNode;
+							if (createNodeId === undefined || createNodeId === null)
+								return;
+
 							if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
-								const createNodeId = await createNode;
-								if (createNodeId) {
-									await addLink(source.fileEditor.id, createNodeId, drawView, plugin)
-								}
+								await addLink(source.fileEditor.id, createNodeId, drawView, plugin)
 							}
+
 						},
 						updateLinks: (para) => {
 							const { linkMatch, getNewPath } = para;
@@ -710,7 +713,7 @@ export const dragExtension = (plugin: CardNote) => {
 
 						await dropCanvas.requestSave()
 
-						if (plugin.settings.fitContentHeight) {	
+						if (plugin.settings.fitContentHeight) {
 							fitContentHeight(createNode);
 							// createNode.startEditing(pos);
 						}
@@ -908,25 +911,51 @@ export const dragExtension = (plugin: CardNote) => {
 };
 
 function fitContentHeight(node: CanvasFileNode | CanvasTextNode) {
-	if (node.child?.previewMode.renderer.sizerEl === undefined
-		|| node.child?.previewMode.renderer.sizerEl === null
-	)
-		node.render();
-
-	const previewSizerWithoutContent = node.child?.previewMode?.renderer?.sizerEl;
-
-	if (previewSizerWithoutContent === undefined)
-		return;
-
-	const renderObserver = new ResizeObserver((entries) => {
+	return asyncSizerRenderObserveWrapper(node, (entries) => {
 		for (let entry of entries) {
 			node?.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
 		}
-		renderObserver.disconnect();
 	});
-
-	if (previewSizerWithoutContent)
-		renderObserver.observe(previewSizerWithoutContent, { box: 'content-box' });
-
 }
+
+function asyncSizerRenderObserveWrapper(node: CanvasFileNode | CanvasTextNode, subscriptions: ResizeObserverCallback) {
+	return new Promise<void>((resolve, reject) => {
+		try {
+			if (node.child?.previewMode.renderer.sizerEl === undefined
+				|| node.child?.previewMode.renderer.sizerEl === null
+			)
+				node.render();
+
+			const previewSizerWithoutContent = node.child?.previewMode?.renderer?.sizerEl;
+			if (previewSizerWithoutContent === undefined) {
+				resolve();
+				return;
+			}
+
+			const renderObserve = new ResizeObserver((entries) => {
+				requestAnimationFrame(() => {
+					//delay this action to next frame to ensure the content get the actual size after render
+					subscriptions(entries, renderObserve);
+					renderObserve.disconnect();
+					clearTimeout(id);
+					resolve();
+				});
+			});
+
+			renderObserve.observe(previewSizerWithoutContent, { box: 'border-box' });
+
+			const id = setTimeout(() => {
+				renderObserve.disconnect();
+				reject("Timeout: fitContentHeight took too long")
+			}, 60 * 1000);
+
+		}
+		catch (error) {
+			reject(`fit content height error: ${error}`);
+		}
+
+	});
+}
+
+
 
