@@ -37,13 +37,14 @@ declare module 'obsidian-excalidraw-plugin/lib/ExcalidrawView' {
 			files?: any;
 			commitToHistory?: boolean;
 		}, shouldRestore?: boolean) => void;
-		addElements: (
+		addElements: (para: {
 			newElements: ExcalidrawElement[],
 			repositionToCursor?: boolean,
 			save?: boolean,
 			images?: any,
 			newElementsOnTop?: boolean,
 			shouldRestoreElements?: boolean,
+		}
 		) => Promise<boolean>
 	}
 }
