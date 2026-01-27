@@ -911,14 +911,14 @@ export const dragExtension = (plugin: CardNote) => {
 };
 
 function fitContentHeight(node: CanvasFileNode | CanvasTextNode) {
-	return asyncSizerRenderObserveWrapper(node, (entries) => {
+	return asyncContentRenderObserveWrapper(node, (entries) => {
 		for (let entry of entries) {
 			node?.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
 		}
 	});
 }
 
-function asyncSizerRenderObserveWrapper(node: CanvasFileNode | CanvasTextNode, subscriptions: ResizeObserverCallback) {
+function asyncContentRenderObserveWrapper(node: CanvasFileNode | CanvasTextNode, subscriptions: ResizeObserverCallback) {
 	return new Promise<void>((resolve, reject) => {
 		try {
 			if (node.child?.previewMode.renderer.sizerEl === undefined
@@ -932,23 +932,27 @@ function asyncSizerRenderObserveWrapper(node: CanvasFileNode | CanvasTextNode, s
 				return;
 			}
 
+			let prevRenderSectionsCount = 0;
 			const renderObserve = new ResizeObserver((entries) => {
 				requestAnimationFrame(() => {
-					//delay this action to next frame to ensure the content get the actual size after render
-					subscriptions(entries, renderObserve);
-					renderObserve.disconnect();
-					clearTimeout(id);
-					resolve();
+					const currentSectionCount = node.child?.previewMode?.renderer.sections?.length ?? 0;
+					if (currentSectionCount !== prevRenderSectionsCount)
+						//delay this action to next frame to ensure the content get the actual size after render
+						subscriptions(entries, renderObserve);
+					prevRenderSectionsCount = currentSectionCount;
 				});
 			});
 
 			renderObserve.observe(previewSizerWithoutContent, { box: 'border-box' });
 
-			const id = setTimeout(() => {
-				renderObserve.disconnect();
-				reject("Timeout: fitContentHeight took too long")
-			}, 60 * 1000);
-
+			const id = setInterval(() => {
+				const currentSectionCount = node.child?.previewMode?.renderer.sections?.length ?? 0;
+				if (currentSectionCount <= prevRenderSectionsCount) {
+					renderObserve.disconnect();
+					clearInterval(id);
+					resolve();
+				}
+			}, 500);
 		}
 		catch (error) {
 			reject(`fit content height error: ${error}`);

@@ -69,9 +69,11 @@ export interface CanvasFileNode extends CanvasNodeData {
 				previewEl: HTMLElement,
 				//markdown-preview-sizer (this element is the child of previewEl)
 				sizerEl: HTMLElement,
+				sections: Array<any>,
 			}
 		}
-	}
+	},
+	isContentMounted: boolean,
 }
 export interface CanvasTextNode extends CanvasNodeData {
 	text: string,
@@ -82,12 +84,13 @@ export interface CanvasTextNode extends CanvasNodeData {
 		text: string,
 		previewMode: {
 			renderer: {
-				previewEl: HTMLElement
-				sizerEl: HTMLElement
+				previewEl: HTMLElement,
+				sizerEl: HTMLElement,
+				sections: Array<any>,
 			}
 		}
-	}
-
+	},
+	isContentMounted: boolean,
 }
 
 export interface CanvasEdgeNode extends CanvasEdgeData {
