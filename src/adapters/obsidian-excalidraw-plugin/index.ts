@@ -29,8 +29,6 @@ export function isObsidianMarkdownEmbeded(value: any): value is Required<Obsidia
 	return 'leaf' in value && 'node' in value
 }
 const MAX_IMAGE_SIZE = 500;
-export const excalidraw__embeddable_container__inner = ".excalidraw__embeddable-container__inner";
-
 export async function insertEmbeddableOnDrawing(event: DragEvent, view: ExcalidrawView, fileLink: string, file: TFile, plugin: CardNote) {
 	try {
 		const ea = getEA();
@@ -67,6 +65,7 @@ export async function insertEmbeddableOnDrawing(event: DragEvent, view: Excalidr
 	} catch (error) {
 		console.log(error);
 	}
+
 }
 
 export async function createTextOnDrawing(event: DragEvent, view: ExcalidrawView, text: string, plugin: CardNote) {
@@ -88,15 +87,12 @@ export async function createTextOnDrawing(event: DragEvent, view: ExcalidrawView
 			pos.x,
 			pos.y,
 			text,
+			{
+				width: plugin.settings.canvasNodeWidth,
+				height: plugin.settings.canvasNodeHeight,
+			}
 		)
-		await view.addElements({
-			newElements: ea.getElements(),
-			repositionToCursor: false,
-			save: true,
-			images: undefined,
-			newElementsOnTop: true,
-			shouldRestoreElements: true
-		});
+		await view.addElements(ea.getElements(), false, true, undefined, true);
 		return id
 
 	} catch (error) {
@@ -112,7 +108,6 @@ export async function addLink(fromNodeId: string, toNodeId: string, view: Excali
 	const edgeId = ea.connectObjects(fromNodeId, null, toNodeId, null, {
 		startArrowHead: plugin.arrowToFrom() ? 'arrow' : null,
 		endArrowHead: plugin.arrowToEnd() ? 'arrow' : null,
-
 	});
 	const label = plugin.settings.defaultLinkLabel;
 	if (label) {

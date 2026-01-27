@@ -12,7 +12,7 @@ import type { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache
 import { TFile } from "obsidian";
 import type { BaseAction, FileNameModelConfig, UserAction } from "src/ui";
 import { FileNameCheckModal } from "src/ui";
-import { addLink, createTextOnDrawing, excalidraw__embeddable_container__inner, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
+import { addLink, createTextOnDrawing, insertEmbeddableOnDrawing as insertEmbeddableNoteOnDrawing, isExcalidrawView } from "src/adapters/obsidian-excalidraw-plugin";
 import { isCanvasEditorNode, isCanvasFileNode, isObsidianCanvasView } from "src/adapters/obsidian";
 import type { CanvasEdgeNode, CanvasFileNode, CanvasTextNode, CanvasView } from "./adapters/obsidian/types/canvas";
 import type { ExcalidrawView } from 'obsidian-excalidraw-plugin/lib/ExcalidrawView';
@@ -616,31 +616,6 @@ export const dragExtension = (plugin: CardNote) => {
 							if (createNodeId === undefined || createNodeId === null)
 								return;
 
-							if (plugin.settings.fitContentHeight && createNodeId && typeof (target) !== 'string') {
-								const el = drawView.getEmbeddableLeafElementById(createNodeId);
-								const canvasNode = el?.node;
-								if (canvasNode) {
-									if (isCanvasFileNode(canvasNode)) {
-										// console.log('canvas node', canvasNode, 'el', canvasNode?.child?.previewMode?.renderer?.sizerEl);
-
-										await fitExcalidrawCanvasNodeContentHeight(canvasNode, drawView, createNodeId);
-
-										// const nodes = drawView.excalidrawAPI.getSceneElements()// getElements(drawView, createNodeId);
-										// console.log('node', nodes);
-										// // const node = nodes[createNodeId];
-										// // nodes[createNodeId] = {
-										// // 	...node,
-										// // 	height: canvasNode?.child?.previewMode?.renderer?.previewEl?.closest(excalidraw__embeddable_container__inner)?.clientHeight || node.height,
-										// // };
-										// console.log('after fit', canvasNode?.child?.previewMode?.renderer?.sizerEl);
-
-										// console.log('after render', canvasNode?.child?.previewMode?.renderer?.sizerEl);
-										// drawView.setDirty(99);
-										// drawView.updateScene({ elements: nodes.map(e => e.id === createNodeId ? { ...e, height: canvasNode?.child?.previewMode?.renderer?.sizerEl.closest(excalidraw__embeddable_container__inner)?.clientHeight || e.height } : e) }, true);
-									}
-								}
-							}
-
 							if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
 								await addLink(source.fileEditor.id, createNodeId, drawView, plugin)
 							}
@@ -939,42 +914,6 @@ function fitContentHeight(node: CanvasFileNode | CanvasTextNode) {
 	return asyncSizerRenderObserveWrapper(node, (entries) => {
 		for (let entry of entries) {
 			node?.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
-		}
-	});
-}
-
-function fitExcalidrawCanvasNodeContentHeight(node: CanvasFileNode, view: ExcalidrawView, excalidrawNodeId: string) {
-	return asyncSizerRenderObserveWrapper(node, (entries) => {
-		for (let entry of entries) {
-			const previewEl = node.child?.previewMode.renderer.previewEl;
-
-			if (!previewEl?.isShown()) {
-				return;
-			}
-			const excalidrawEmbeddableContainer = previewEl.closest(excalidraw__embeddable_container__inner)
-			if (!(excalidrawEmbeddableContainer instanceof HTMLElement)) {
-				console.log("null excalidrawEmbeddableContainer");
-				return;
-			}
-			for (let round = 0; round < 10; round++) {
-				const clientHeight = excalidrawEmbeddableContainer.clientHeight;
-				console.log(`round ${round}, clientHeight: ${clientHeight}`);
-				previewEl.style.height = "1px";
-				const scrollHeight = previewEl.scrollHeight;
-				previewEl.style.height = "";
-				const l = scrollHeight - clientHeight + 1;
-				if (Math.abs(l) <= .5)
-					break;
-				excalidrawEmbeddableContainer.style.height = `${clientHeight + l}px`;
-				console.log(`round ${round}, clientHeight: ${clientHeight}, scrollHeight: ${scrollHeight}, distance: ${l}, set excalidrawEmbeddableContainer height: ${excalidrawEmbeddableContainer.style.height}`);
-
-			}
-			const originNodes = view.excalidrawAPI.getSceneElements();
-			view.setDirty(99);
-			view.updateScene({
-				elements: originNodes.map(n => n.id === excalidrawNodeId ? { ...n, height: excalidrawEmbeddableContainer.clientHeight } : n)
-			}, true);
-
 		}
 	});
 }
