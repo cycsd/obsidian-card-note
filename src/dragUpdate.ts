@@ -8,7 +8,7 @@ import {
 	getRelativePosition,
 	reverseRelative
 } from "src/utility";
-import type { BlockCache, CachedMetadata, CacheItem, HeadingCache, ListItemCache, MarkdownFileInfo, SectionCache, } from "obsidian";
+import type { BlockCache, CachedMetadata, CacheItem, FileView, HeadingCache, ListItemCache, MarkdownFileInfo, SectionCache, } from "obsidian";
 import { TFile } from "obsidian";
 import type { BaseAction, FileNameModelConfig, UserAction } from "src/ui";
 import { FileNameCheckModal } from "src/ui";
@@ -373,6 +373,7 @@ export async function onFilesUpdated(plugin: CardNote, files: TFile[], on: (cach
 type FileEditor = {
 	fileEditor: MarkdownFileInfo | CanvasFileNode | CanvasTextNode | null | undefined,
 	offset: number,
+	view?: FileView | CanvasView | ExcalidrawView | null,
 }
 function getFile(ed: FileEditor | undefined | null) {
 	const hasFile = (fe: MarkdownFileInfo | CanvasFileNode | CanvasTextNode): fe is MarkdownFileInfo | CanvasFileNode => {
@@ -683,8 +684,16 @@ export const dragExtension = (plugin: CardNote) => {
 							save: false,
 						});
 
-						if (plugin.settings.autoLink && isCanvasEditorNode(source?.fileEditor)) {
-							const fromSide = getRelativePosition(source.fileEditor, createNode);
+						if (plugin.settings.autoLink) {
+							const sourceNodeInfo = isCanvasEditorNode(source?.fileEditor)
+								? { node: source.fileEditor, canvasView: source.view }
+								: plugin.getLatestSelectCanvasNodeInfo(source?.view);
+
+							const fromSide = sourceNodeInfo !== undefined
+								&& sourceNodeInfo.canvasView?.file?.path === drawView.file?.path
+								? getRelativePosition(sourceNodeInfo.node, createNode)
+								: undefined;
+
 							if (fromSide && reverseRelative.has(fromSide)) {
 								const toSide = reverseRelative.get(fromSide);
 								const edgeID = plugin.createRandomHexString(16);
@@ -695,7 +704,7 @@ export const dragExtension = (plugin: CardNote) => {
 								if (edgeSample) {
 									// @ts-ignore: Wait for the Obsidian API then fix this lack of proper constructor
 									const e: CanvasEdgeNode = new edgeSample.constructor(dropCanvas, edgeID,
-										{ side: fromSide, node: source.fileEditor, end: fromEnd },
+										{ side: fromSide, node: sourceNodeInfo!.node, end: fromEnd },
 										{ side: toSide, node: createNode, end: toEnd })
 									e.setLabel(label);
 									dropCanvas.addEdge(e);
@@ -708,7 +717,7 @@ export const dragExtension = (plugin: CardNote) => {
 										nodes: data.nodes,
 										edges: [...data.edges, {
 											id: edgeID,
-											fromNode: source.fileEditor.id,
+											fromNode: sourceNodeInfo!.node.id,
 											fromSide,
 											fromEnd,
 											toNode: createNode.id,
@@ -925,9 +934,9 @@ export const dragExtension = (plugin: CardNote) => {
 
 function fitContentHeight(node: CanvasFileNode | CanvasTextNode) {
 	return asyncContentRenderObserveWrapper(node, (entries) => {
-		for (let entry of entries) {
-			node?.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
-		}
+		// for (let entry of entries) {
+		node?.onResizeDblclick(new MouseEvent('dblclick'), "bottom");
+		// }
 	});
 }
 
@@ -947,7 +956,7 @@ function asyncContentRenderObserveWrapper(node: CanvasFileNode | CanvasTextNode,
 
 			let prevRenderSectionsCount = 0;
 			const renderObserve = new ResizeObserver((entries) => {
-				requestAnimationFrame(() => {
+				window.requestAnimationFrame(() => {
 					const currentSectionCount = node.child?.previewMode?.renderer.sections?.length ?? 0;
 					if (currentSectionCount !== prevRenderSectionsCount)
 						//delay this action to next frame to ensure the content get the actual size after render
@@ -963,9 +972,10 @@ function asyncContentRenderObserveWrapper(node: CanvasFileNode | CanvasTextNode,
 				if (currentSectionCount <= prevRenderSectionsCount) {
 					renderObserve.disconnect();
 					clearInterval(id);
+					// subscriptions([], renderObserve);
 					resolve();
 				}
-			}, 500);
+			}, 800);
 		}
 		catch (error) {
 			reject(`fit content height error: ${error}`);

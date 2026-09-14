@@ -1,6 +1,7 @@
 import type { BlockCache, CacheItem, HeadingCache, LinkCache, OpenViewState, WorkspaceLeaf } from "obsidian"
 import {
 	App,
+	FileView,
 	MarkdownRenderer,
 	Plugin,
 	PluginSettingTab,
@@ -21,7 +22,8 @@ import { CardSearchView, VIEW_TYPE_CARDNOTESEARCH } from "src/view/cardSearchVie
 import { LinkSettingModel } from "src/ui/linkSettings";
 import type { Extension } from "@codemirror/state";
 import type { EditorView } from "codemirror";
-import type { CanvasView } from "src/adapters/obsidian/types/canvas";
+import type { CanvasFileNode, CanvasNode, CanvasView } from "src/adapters/obsidian/types/canvas";
+import type { ExcalidrawView } from "obsidian-excalidraw-plugin/lib/ExcalidrawView";
 
 
 
@@ -82,6 +84,11 @@ export default class CardNote extends Plugin {
 	toggleDragSymbol: (view: EditorView, show: boolean) => void = () => { };
 	applyAutoPreviewNode: (leaf: WorkspaceLeaf | null) => void = () => { };
 	autoPreviewAttribute = 'cardnote-preview-leaf'
+	latestSelectCanvasNodeInfo: {
+		node: CanvasFileNode
+		canvasView: CanvasView
+	} | undefined = undefined;
+
 	async onload() {
 		await this.loadSettings();
 		const { extensions, toggleDragSymbol } = dragExtension(this);
@@ -179,6 +186,10 @@ export default class CardNote extends Plugin {
 				if (selectedNodes.size !== 1) return;
 				const [node] = selectedNodes;
 				if (!isCanvasFileNode(node)) return;
+				plugin.latestSelectCanvasNodeInfo = {
+					node,
+					canvasView: activeView!,
+				};
 				//const unpinedLeaf = plugin.app.workspace.getLeaf(false);//如果沒找到，會使用 tab 創建一個新的 leaf
 				plugin.settings.previewNodeInfo = [node.id, node.file.path, activeView?.file?.path ?? ''];
 				const previewLeaf = await getPreviewLeaf();
@@ -393,6 +404,7 @@ export default class CardNote extends Plugin {
 				() => this.settings.autoPreview,
 				() => {
 					this.settings.autoPreview = false;
+					this.latestSelectCanvasNodeInfo = undefined;
 				}
 			)
 		});
@@ -480,7 +492,7 @@ export default class CardNote extends Plugin {
 
 	}
 	getActiveEditorFile() {
-		const view = this.app.workspace.getActiveViewOfType(TextFileView);
+		const view = this.app.workspace.getActiveViewOfType(FileView);
 
 		if (view) {
 			//return canvas node because excalidraw also use canvas node and need to get narrow to block offset
@@ -490,7 +502,7 @@ export default class CardNote extends Plugin {
 				// so property type = 'file' | 'text' | 'group' is in the unknownData property
 				//const file = selectNode?.file as TFile | undefined;
 				return isCanvasEditorNode(selectNode)
-					? { fileEditor: selectNode, offset: getOffset(selectNode) }
+					? { fileEditor: selectNode, offset: getOffset(selectNode), view }
 					: undefined
 			}
 			if (isExcalidrawView(view)) {
@@ -502,13 +514,26 @@ export default class CardNote extends Plugin {
 						fileEditor: {
 							...embeddable.node,
 							id: excalidrawShape?.id ?? embeddable.node.id,
-						}, offset: getOffset(embeddable.node)
+						},
+						offset: getOffset(embeddable.node),
+						view,
 					} : undefined
 			}
 
 		}
+		const activeEditorFile = {
+			fileEditor: this.app.workspace.activeEditor,
+			offset: 0,
+			view,
+		};
 
-		return { fileEditor: this.app.workspace.activeEditor, offset: 0 }
+		return activeEditorFile;
+	}
+
+	getLatestSelectCanvasNodeInfo(view?: FileView | ExcalidrawView | null) {
+		if (this.settings.autoPreview && view && view.leaf.containerEl.getAttribute(this.autoPreviewAttribute) !== null) {
+			return this.latestSelectCanvasNodeInfo;
+		}
 	}
 
 	async checkFileName(file: FileInfo): Promise<FileInfo | Error> {
@@ -536,7 +561,7 @@ export default class CardNote extends Plugin {
 	updateInternalLinks(linkMap: Map<string, LinkInfo[]>, newPath: (link: LinkInfo) => string) {
 		const changes = LinkToChanges(linkMap, newPath);
 		//can not update canvas
-		this.app.fileManager.updateInternalLinks(changes);
+		this.app.metadataCache.updateInternalLinks(changes);
 	}
 	renameCanvasSubpath(origin: LinkFilePath, newFile: LinkFilePath) {
 		const canvasUpdater = this.app.fileManager.linkUpdaters.canvas;
@@ -618,7 +643,7 @@ export default class CardNote extends Plugin {
 			const cache = this.app.metadataCache;
 			const fileManger = this.app.fileManager;
 			const linkMap = new Map<string, LinkInfo[]>();
-			fileManger.iterateAllRefs((fileName, linkCache) => {
+			cache.iterateAllRefs((fileName, linkCache) => {
 				fileName.normalize()
 				//linkPath = link target (file Name)
 				const linkInfo = this.createLinkInfo(linkCache);

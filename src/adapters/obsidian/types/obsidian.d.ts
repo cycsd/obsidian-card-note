@@ -64,6 +64,13 @@ declare module "obsidian" {
   interface MetadataCache {
     getCachedFiles(): string[];
     getTags(): Record<string, number>;
+    /**
+ * 
+ * @param fn 
+ * @returns 
+ */
+    iterateAllRefs: (fn: (fileName: string, cache: LinkCache) => void) => void
+    updateInternalLinks: (changes: Changes) => void
   }
 
   // class FileExplorerPlugin extends Plugin_2 {

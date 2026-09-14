@@ -2,9 +2,10 @@
 	"id": "card-note",
 	"name": "CardNote",
 	"version": "1.7.0",
-	"minAppVersion": "1.5.11",
-	"description": "Help you quickly extract your thoughts in the Canvas and Excalidraw",
+	"minAppVersion": "1.13.7",
+	"description": "Turn thoughts into connected visual notes on Obsidian Canvas and Excalidraw",
 	"author": "cycsd",
 	"authorUrl": "https://github.com/cycsd",
+	"fundingUrl": "https://ko-fi.com/graychen29796",
 	"isDesktopOnly": false
 }

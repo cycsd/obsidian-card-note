@@ -8,7 +8,7 @@ export const OBSIDIAN_CANVAS = "canvas";
 export function isFileView(view?: View): view is FileView {
 	return view ? 'file' in view : false
 }
-export function isObsidianCanvasView(view?: TextFileView): view is CanvasView {
+export function isObsidianCanvasView(view?: FileView): view is CanvasView {
 	return view?.getViewType() === OBSIDIAN_CANVAS;
 }
 export function isCanvasFileNode(node: CanvasNode | ObsidianCanvasNode): node is CanvasFileNode {
