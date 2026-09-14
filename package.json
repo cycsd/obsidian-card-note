@@ -1,6 +1,6 @@
 {
 	"name": "card-note-plugin",
-	"version": "1.7.0",
+	"version": "1.7.1",
 	"description": "Turn thoughts into connected visual notes on Obsidian Canvas and Excalidraw",
 	"main": "main.js",
 	"scripts": {
@@ -8,7 +8,13 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": ["obsidian", "canvas", "excalidraw", "visual notes", "knowledge management"],
+	"keywords": [
+		"obsidian",
+		"canvas",
+		"excalidraw",
+		"visual notes",
+		"knowledge management"
+	],
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {

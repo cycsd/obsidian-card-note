@@ -1,7 +1,7 @@
 {
 	"id": "card-note",
 	"name": "CardNote",
-	"version": "1.7.0",
+	"version": "1.7.1",
 	"minAppVersion": "1.13.7",
 	"description": "Turn thoughts into connected visual notes on Obsidian Canvas and Excalidraw",
 	"author": "cycsd",
