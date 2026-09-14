@@ -564,13 +564,13 @@ export default class CardNote extends Plugin {
 		this.app.metadataCache.updateInternalLinks(changes);
 	}
 	renameCanvasSubpath(origin: LinkFilePath, newFile: LinkFilePath) {
-		const canvasUpdater = this.app.fileManager.linkUpdaters.canvas;
+		const canvasUpdater = this.app.metadataCache.linkUpdaters.canvas;
 		if (origin.file.path === newFile.file.path && origin.subpath !== newFile.subpath) {
 			canvasUpdater.renameSubpath(origin.file, origin.subpath ?? "", newFile.subpath ?? "");
 		}
 	}
 	getCanvas(filter?: (canvasPath: string, embed: { file?: string, subpath?: string }) => boolean) {
-		const canvasUpdater = this.app.fileManager.linkUpdaters.canvas;
+		const canvasUpdater = this.app.metadataCache.linkUpdaters.canvas;
 		const canvases = canvasUpdater.canvas.index.getAll();
 		const queue: string[] = [];
 		for (const canvasFilePath in canvases) {

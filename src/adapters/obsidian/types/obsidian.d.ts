@@ -71,6 +71,17 @@ declare module "obsidian" {
  */
     iterateAllRefs: (fn: (fileName: string, cache: LinkCache) => void) => void
     updateInternalLinks: (changes: Changes) => void
+    linkUpdaters: {
+      canvas: {
+        canvas: {
+          index: {
+            getAll: () => Record<string, { caches: Record<string, any>[], embeds: { file?: string, subpath?: string }[] }>
+          }
+        }
+        //subpath behind #
+        renameSubpath: (file: TFile, oldSubpath: string, newSubpath: string) => any
+      }
+    }
   }
 
   // class FileExplorerPlugin extends Plugin_2 {
