@@ -1,6 +1,6 @@
 {
 	"name": "card-note-plugin",
-	"version": "1.7.1",
+	"version": "1.7.2",
 	"description": "Turn thoughts into connected visual notes on Obsidian Canvas and Excalidraw",
 	"main": "main.js",
 	"scripts": {
