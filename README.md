@@ -3,63 +3,79 @@
 </h1>
 
 <p align="center">
-    <a href="https://github.com/cycsd/obsidian-card-note/stargazers"><img src="https://img.shields.io/github/stars/cycsd/obsidian-card-note?colorA=363a4f&colorB=e0ac00&style=for-the-badge" alt="GitHub star count"></a>
-    <a href="https://github.com/cycsd/obsidian-card-note/issues"><img src="https://img.shields.io/github/issues/cycsd/obsidian-card-note?colorA=363a4f&colorB=e93147&style=for-the-badge" alt="Open issues on GitHub"></a>
-    <a href="https://github.com/cycsd/obsidian-card-note/contributors"><img src="https://img.shields.io/github/contributors/cycsd/obsidian-card-note?colorA=363a4f&colorB=08b94e&style=for-the-badge" alt="List of contributors"></a>
-    <br/>
-	<a href="https://obsidian.md/plugins?id=card-note"><img src="https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&style=for-the-badge&label=downloads&query=%24%5B%22card-note%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json"/></a>
+  <a href="https://github.com/cycsd/obsidian-card-note/stargazers"><img src="https://img.shields.io/github/stars/cycsd/obsidian-card-note?colorA=363a4f&colorB=e0ac00&style=for-the-badge" alt="GitHub star count"></a>
+  <a href="https://github.com/cycsd/obsidian-card-note/issues"><img src="https://img.shields.io/github/issues/cycsd/obsidian-card-note?colorA=363a4f&colorB=e93147&style=for-the-badge" alt="Open issues on GitHub"></a>
+  <a href="https://github.com/cycsd/obsidian-card-note/contributors"><img src="https://img.shields.io/github/contributors/cycsd/obsidian-card-note?colorA=363a4f&colorB=08b94e&style=for-the-badge" alt="List of contributors"></a>
+  <br/>
+	<a href="https://obsidian.md/plugins?id=card-note"><img src="https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&style=for-the-badge&label=downloads&query=%24%5B%22card-note%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json" alt="Obsidian download count"/></a>
 	<a href="./LICENSE"><img src="https://img.shields.io/static/v1.svg?style=for-the-badge&label=License&message=MIT&colorA=363a4f&colorB=b7bdf8" alt="MIT license"/></a>
-    <br/><br/>
-    <h3 align='center'>⚡ Extract your thoughts more quickly</h3>
+  <br/><br/>
+  <strong>⚡ Turn thoughts into connected visual notes.</strong>
 </p>
 
-This tool help you create a new note and insert its link into the canvas. Let you quickly build visualized notes on [Obsidian Canvas](https://obsidian.md/canvas) and the [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin) by *"Drag and Drop"*.
+CardNote helps you extract ideas from the editor and turn them into linked notes on [Obsidian Canvas](https://obsidian.md/canvas) or [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin).
+
+Drag a block, drop it onto your board, and keep thinking without breaking your flow.
+
+![Drag a thought from the editor to Canvas](src/images/cardnote.gif)
+
+## Why CardNote?
+
+- **Capture ideas without breaking your flow**: Drag a heading, paragraph, list, or selected text directly from the editor.
+- **Build visual notes faster**: Create a new note from the content you want to keep and place it on Canvas or Excalidraw.
+- **Keep context connected**: Automatically draw a link between the source card and the extracted note.
+- **Explore notes side by side**: Open the selected Canvas file node in a split view with Auto Preview.
+- **Browse your vault visually**: Search notes with the built-in Cards View.
+
+## Get Started
+
+1. Install CardNote from Obsidian Community Plugins.
+2. Open a note in the editor and find the drag symbol beside a block.
+3. Drag the block onto an Obsidian Canvas or Excalidraw.
+4. CardNote creates a linked note and connects it to the source.
 
 
-# Features
-- By creating a new note, referencing blocks, or cutting, quickly extract the blocks you want, and draw links on the canvas.
-- Dragging the first line drags the entire block.
 
-  Support  foldable blocks, markdown syntax,
+## Features
 
-  e.g. heading, paragraph, bullet list ...
+### Obsidian Canvas
 
-- Automatically open the file in a split view when you click the node on the canvas.
+Create notes from editor content, place them on Canvas, and automatically connect them with configurable arrows and labels.
 
-# Commands
-- Enable/Disable Auto Link: toggle auto create link feature.
-- Arrow to * : When auto link is enable, select which arrow style to use for the link.
-- Set Default Label: Set the label for link created automatically.
-- Show/Hide Drag Symbol: Show or hide the drag symbol.
-- Create New File in Default/Source/Canvas Folder: Choose which folder you want to save the extracted content.
-- Enable/Disable Auto Preview: When enabled, clicking a node on the canvas automatically opens the file in a split view.
+![Drag a block to Obsidian Canvas](src/images/CardNoteCanvas.gif)
 
+### Excalidraw
 
+Use the same drag-and-drop workflow while sketching and organizing ideas in Excalidraw.
 
-# Translate
-[繁體中文](https://github.com/cycsd/obsidian-card-note/blob/main/TRANSLATING_ZHTW.md)
+![Drag a block to Excalidraw](src/images/CardNoteExcalidraw.gif)
 
-# Example
-## Obsidian Canvas
-![ExampleCanvas](src/images/CardNoteCanvas.gif)
-## Excalidraw
-![ExampleExcalidraw](src/images/CardNoteExcalidraw.gif)
-## Extract selections
-![ExampleSelection](src/images/CardNoteSection.gif)
-## Extract foldable range
-![ExampleFoldable](src/images/CardNoteFoldable.gif)
+### Cards View
 
-## Cards View
-![Crads View](src/images/CardNoteSearchView.gif)
+Search and browse your notes in a visual card layout.
 
-# Alternative
-### Drag-and-Drop
- You could replace drag-and-drop feature by steps below
- 1. Right-click to open the tools menu in the editor
- 2. Use Obsidian Note Composer to extract your thoughts into a new note
- 3. In [Obsidian Canvas](https://obsidian.md/canvas) or [obsidian-excalidraw-plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin), Right-click to open the tools menu.
- 4. Insert markdown file to canvas.
- 5. You can replace Right-click by setting Note Composer hotkey, and replace steps 3 ~ 4 by dragging link in editor.
+![Browse notes in Cards View](src/images/CardNoteSearchView.gif)
 
- ### Cards View
- [obsidian-cards-view-plugin](https://github.com/jillro/obsidian-cards-view-plugin): display a beautiful masonry layout for your notes.
+## Commands
+
+| Command | Description |
+| --- | --- |
+| Enable/Disable Auto Link | Automatically connect the extracted note to the source card on Canvas. |
+| Arrow to * | Choose an arrow pointing from the source, to the target, in both directions, or no arrow. |
+| Set Default Label| Add a label to automatically created links. |
+| Show/Hide Drag Symbol | Show or hide the editor drag handle. |
+| Enable/Disable Auto Preview | Open the selected Canvas file node in a split view. |
+
+## Requirements
+
+- Obsidian 1.13.7 or later
+- Obsidian Canvas for Canvas workflows
+- The Excalidraw community plugin for Excalidraw workflows
+
+## Support CardNote
+
+[![Support CardNote on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B37J4BG)
+
+## License
+
+[MIT](./LICENSE)
